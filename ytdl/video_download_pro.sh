@@ -172,6 +172,34 @@ check_prerequisites() {
 
 # Function to download YouTube video
 download_youtube() {
+    # Check for history-only mode
+    if [ "$QUALITY" = "history" ]; then
+        log "=== YOUTUBE HISTORY UPDATE ONLY ==="
+        log "URL: $URL"
+        
+        # Get title first for the output
+        VIDEO_TITLE=$("$YTDLP_PATH" --cookies "$COOKIES_FILE" --get-title "$URL" 2>/dev/null)
+        
+        log "Updating watch history for: $VIDEO_TITLE"
+        
+        "$YTDLP_PATH" \
+            --cookies "$COOKIES_FILE" \
+            --mark-watched \
+            --simulate \
+            "$URL" >> "$LOG_FILE" 2>&1
+            
+        local ret=$?
+        if [ $ret -eq 0 ]; then
+            log "SUCCESS: Watch history updated"
+            echo "{\"title\": \"$VIDEO_TITLE\", \"status\": \"success\", \"action\": \"history_update\", \"video_source_url\": \"$URL\", \"platform\": \"youtube\"}"
+            exit 0
+        else
+            log "ERROR: Failed to update watch history"
+            echo "{\"status\": \"error\", \"message\": \"Failed to update watch history\", \"video_source_url\": \"$URL\", \"platform\": \"youtube\"}"
+            exit 1
+        fi
+    fi
+
     log "=== YOUTUBE DOWNLOAD STARTED ==="
     log "URL: $URL"
     log "Quality: ${QUALITY:-best} ($(get_quality_label "$QUALITY"))"
@@ -455,6 +483,7 @@ main() {
         echo "  2 or 720p - Up to 720p quality (balanced)"
         echo "  3 or 1080p - Up to 1080p quality (high quality)"
         echo "  4 or 4k - Up to 4K quality (highest quality) - Bilibili only"
+        echo "  history - 仅更新播放历史，不下载 (Update watch history only)"
         echo "  (no parameter) - Best available quality"
         echo ""
         echo "Mode options (Bilibili only):"
