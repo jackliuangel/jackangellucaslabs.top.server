@@ -73,7 +73,7 @@ Nginx services :
 - 5. 在nginx server, `/etc/nginx/sites-enabled`目录下，创建soft link `foobar-subdomain` 到 `/var/www/html/foobar-subdomain`
 - 6. `sudo systemctl restart nginx`
 # note：
-# sudo certbot certificates 这个命令会列出所有由 Certbot 管理的证书，包括：
+# sudo certbot certificates 这个命令会列出所有由 Certbot 管理的证书
 
 
 
