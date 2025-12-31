@@ -398,7 +398,29 @@ process_download_result() {
                 log "No separate subtitle files found (may be embedded)"
             fi
             
-            DOWNLOAD_HTTP_URL="http://47.128.3.198/files/$FILE_NAME"
+            # Zip the file to save space and hide filename
+            ZIP_FILE_NAME="${TIMESTAMP}.zip"
+            ZIP_FILE_PATH="$DOWNLOAD_DIR/$ZIP_FILE_NAME"
+            
+            log "Zipping files to $ZIP_FILE_PATH..."
+            
+            # Use zip -j to not store paths, and -m to move (delete source)
+            if [ -n "$DOWNLOADED_SUBTITLES" ]; then
+                zip -j -m "$ZIP_FILE_PATH" "$FILE_PATH" $DOWNLOADED_SUBTITLES >> "$LOG_FILE" 2>&1
+            else
+                zip -j -m "$ZIP_FILE_PATH" "$FILE_PATH" >> "$LOG_FILE" 2>&1
+            fi
+            
+            if [ $? -eq 0 ] && [ -f "$ZIP_FILE_PATH" ]; then
+                log "Zip encoding successful"
+                FILE_PATH="$ZIP_FILE_PATH"
+                FILE_NAME="$ZIP_FILE_NAME"
+                FILE_SIZE=$(du -h "$FILE_PATH" | cut -f1)
+            else
+                log "Zip encoding failed, using original file"
+            fi
+
+            DOWNLOAD_HTTP_URL="https://jackangellucaslabs.top/files/$FILE_NAME"
             
             # Return file information
             log "SUCCESS: Download completed"
@@ -438,7 +460,21 @@ process_download_result() {
                 log "Video size: $FILE_SIZE"
                 log "Video path: $FILE_PATH"
                 
-                DOWNLOAD_HTTP_URL="http://47.128.3.198/files/$FILE_NAME"
+                # Zip the file in fallback block too
+                ZIP_FILE_NAME="${TIMESTAMP}.zip"
+                ZIP_FILE_PATH="$DOWNLOAD_DIR/$ZIP_FILE_NAME"
+                
+                log "Zipping files to $ZIP_FILE_PATH..."
+                zip -j -m "$ZIP_FILE_PATH" "$FILE_PATH" >> "$LOG_FILE" 2>&1
+                
+                if [ $? -eq 0 ] && [ -f "$ZIP_FILE_PATH" ]; then
+                    log "Zip encoding successful"
+                    FILE_PATH="$ZIP_FILE_PATH"
+                    FILE_NAME="$ZIP_FILE_NAME"
+                    FILE_SIZE=$(du -h "$FILE_PATH" | cut -f1)
+                fi
+                
+                DOWNLOAD_HTTP_URL="https://jackangellucaslabs.top/files/$FILE_NAME"
                 
                 if [ "$platform" = "bilibili" ]; then
                     echo "{\"title\": \"$VIDEO_TITLE\", \"uploader\": \"$VIDEO_UPLOADER\", \"download_link\": \"$DOWNLOAD_HTTP_URL\", \"video_source_url\": \"$URL\", \"platform\": \"bilibili\"}"
