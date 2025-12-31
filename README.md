@@ -90,3 +90,5 @@ Nginx services :
 # note：
 # 停止旧pm2服务
 # pm2 delete drawing-guessing
+# 重启所有pm2服务
+# pm2 restart all
