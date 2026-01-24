@@ -3,3 +3,4 @@ ytdl/cookies-bilibili.txt
 
 
 \.DS_Store
+ var/www/html/.DS_Store
