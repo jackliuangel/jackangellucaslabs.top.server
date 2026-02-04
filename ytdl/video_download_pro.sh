@@ -40,21 +40,25 @@ get_quality_label() {
     esac
 }
 
-# Function to get YouTube format selector
+# Function to get YouTube format selector (More compatible version)
 get_youtube_format_selector() {
     local quality="$1"
     case "$quality" in
         1|"360p")
-            echo "b[ext=mp4][height=360]/bv*[ext=mp4][height=360]+ba[ext=m4a]/bv*[height=360]+ba/b[height=360]/b"
+            # 优先 360p MP4，否则选 360p 任意格式
+            echo "bv*[height<=360][ext=mp4]+ba[ext=m4a]/bv*[height<=360]+ba/b[height<=360]/best"
             ;;
         2|"720p")
-            echo "b[ext=mp4][height<=720]/bv*[ext=mp4][height<=720]+ba[ext=m4a]/bv*[height<=720]+ba/b[height<=720]/b"
+            # 优先 720p MP4
+            echo "bv*[height<=720][ext=mp4]+ba[ext=m4a]/bv*[height<=720]+ba/b[height<=720]/best"
             ;;
         3|"1080p")
-            echo "bv*[vcodec^=avc1][height<=1080]+ba[acodec^=mp4a]/bv*[vcodec^=avc1][height<=1080]+ba[acodec^=mp4a]/b[ext=mp4][height<=1080]"
+            # 优先 1080p MP4 (avc1 编码兼容性最好)
+            echo "bv*[height<=1080][vcodec^=avc1]+ba[acodec^=mp4a]/bv*[height<=1080][ext=mp4]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080]/best"
             ;;
         *)
-            echo "b[ext=mp4]/bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/b"
+            # 默认：最好画质但限制在 MP4 容器
+            echo "bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/b"
             ;;
     esac
 }
