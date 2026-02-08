@@ -174,6 +174,37 @@ check_prerequisites() {
     COOKIES_OPTION="--cookies $COOKIES_FILE"
 }
 
+# Function to get PO token args
+get_po_token_args() {
+    local token_script="$YTDL_COOKIES_DIR/get_po_token.py"
+    
+    if [ ! -f "$token_script" ]; then
+        # Try relative path
+        token_script="$(dirname "$0")/get_po_token.py"
+    fi
+
+    if [ -f "$token_script" ]; then
+        log "Attempting to generate PO token using $token_script..."
+        # Run python script and capture stdout. Stderr goes to log.
+        local args
+        args=$(python3 "$token_script" 2>>"$LOG_FILE")
+        
+        if [ $? -eq 0 ] && [ -n "$args" ]; then
+            log "PO Token generated successfully."
+            # The python script returns the value for extractor-args. 
+            # We need to prepend the flag.
+            echo "--extractor-args"
+            echo "$args"
+        else
+            log "WARNING: Failed to generate PO token or script returned empty."
+            return 1
+        fi
+    else
+         log "WARNING: get_po_token.py not found at $token_script"
+         return 1
+    fi
+}
+
 # Function to download YouTube video
 download_youtube() {
     # Check for history-only mode
@@ -209,8 +240,26 @@ download_youtube() {
     log "Quality: ${QUALITY:-best} ($(get_quality_label "$QUALITY"))"
     log "Format selector: $FORMAT_SELECTOR"
     log "download dir: $DOWNLOAD_DIR"    
+    # Get PO Token Args
+    local po_token_flag=""
+    local po_token_val=""
+    
+    # Capture output as array to handle spaces safely if needed, though here it's likely single string
+    # Using read to split the two lines (flag and value)
+    {
+        read -r po_token_flag
+        read -r po_token_val
+    } < <(get_po_token_args)
+    
+    if [ -n "$po_token_flag" ] && [ -n "$po_token_val" ]; then
+        log "Using PO Token args: $po_token_val"
+    else
+        log "Proceeding without PO Token args"
+    fi
+
     # Execute download
     "$YTDLP_PATH" \
+        ${po_token_flag:+"$po_token_flag"} ${po_token_val:+"$po_token_val"} \
         --cookies "$COOKIES_FILE" \
         -f "$FORMAT_SELECTOR" \
         --write-sub \
