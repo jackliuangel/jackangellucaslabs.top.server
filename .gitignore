@@ -2,8 +2,6 @@ ytdl/cookies-youtube.txt
 ytdl/cookies-bilibili.txt
 
 
-\.DS_Store
- var/www/html/.DS_Store
- var/www/.DS_Store
+.DS_Store
 
 chat-artifacts
