@@ -47,19 +47,77 @@ log "Starting download with subtitles..."
 
 #     -f "best[ext=mp4]/best" \
 # Execute download with subtitle options
-    "$YTDLP_PATH" \
-    --cookies "$COOKIES_FILE" \
-    -f "best[ext=mp4]/best" \
-    --write-sub \
-    --write-auto-sub \
-    --sub-lang "zh,zh-Hans,zh-CN,en" \
-    --sub-format "srt" \
-    --embed-subs \
-    --no-progress \
-    --mark-watched \
-    --embed-thumbnail \
-    -o "$DOWNLOAD_DIR/${TIMESTAMP}.%(ext)s" \
-    "$URL" >> "$LOG_FILE" 2>&1
+
+    # Try to generate PO Token
+    PO_TOKEN_ARGS=""
+    if [ -f "/home/ubuntu/ytdl/get_po_token.py" ]; then
+        log "Generating PO Token..."
+        PO_TOKEN=$(python3 /home/ubuntu/ytdl/get_po_token.py 2>>"$LOG_FILE")
+        if [ $? -eq 0 ] && [ -n "$PO_TOKEN" ]; then
+            log "PO Token generated successfully"
+            PO_TOKEN_ARGS="--extractor-args \"$PO_TOKEN\""
+        else
+            log "WARNING: Failed to generate PO Token"
+        fi
+    fi
+
+    CMD_ARGS=(
+        "$YTDLP_PATH"
+        --cookies "$COOKIES_FILE"
+        --js-runtimes node
+        --remote-components ejs:github
+        -f "best[ext=mp4]/best"
+        --write-sub
+        --write-auto-sub
+        --sub-lang "zh,zh-Hans,zh-CN,en"
+        --sub-format "srt"
+        --embed-subs
+        --no-progress
+        --mark-watched
+        --embed-thumbnail
+        -o "$DOWNLOAD_DIR/${TIMESTAMP}.%(ext)s"
+        "$URL"
+    )
+
+    if [ -n "$PO_TOKEN_ARGS" ]; then
+        # We need to eval or use array properly if args contain spaces/quotes
+        # But extractor args string is simple enough to pass directly if constructed carefully
+        # However, passing quoted string inside array expansion is tricky
+        # So lets just construct the command string for logging and execution via eval if needed
+        # Or simpler: just append the arg
+        "$YTDLP_PATH" \
+        --cookies "$COOKIES_FILE" \
+        --js-runtimes node \
+        --remote-components ejs:github \
+        --extractor-args "$PO_TOKEN" \
+        -f "best[ext=mp4]/best" \
+        --write-sub \
+        --write-auto-sub \
+        --sub-lang "zh,zh-Hans,zh-CN,en" \
+        --sub-format "srt" \
+        --embed-subs \
+        --no-progress \
+        --mark-watched \
+        --embed-thumbnail \
+        -o "$DOWNLOAD_DIR/${TIMESTAMP}.%(ext)s" \
+        "$URL" >> "$LOG_FILE" 2>&1
+    else
+        "$YTDLP_PATH" \
+        --cookies "$COOKIES_FILE" \
+        --js-runtimes node \
+        --remote-components ejs:github \
+        -f "best[ext=mp4]/best" \
+        --write-sub \
+        --write-auto-sub \
+        --sub-lang "zh,zh-Hans,zh-CN,en" \
+        --sub-format "srt" \
+        --embed-subs \
+        --no-progress \
+        --mark-watched \
+        --embed-thumbnail \
+        -o "$DOWNLOAD_DIR/${TIMESTAMP}.%(ext)s" \
+        "$URL" >> "$LOG_FILE" 2>&1
+    fi
 
 # Capture exit code
 DOWNLOAD_EXIT_CODE=$?

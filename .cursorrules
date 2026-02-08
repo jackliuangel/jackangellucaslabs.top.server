@@ -1,0 +1,19 @@
+# Project Rules and Constraints
+
+## 1. Remote Server Access (lightsail)
+- This repository runs on a remote server named **lightsail**.
+- Access the server using: `ssh lightsail`.
+- **Performance Constraints:**
+  - The server is low-performance.
+  - **DISABLE `scp`**: Do not use `scp` to transfer files.
+  - **NO heavy bash code**: Avoid complex or resource-intensive shell scripts.
+  - **Single Session Only**: Do not attempt to open more than one SSH session simultaneously.
+
+## 2. Directory Structure & Debugging
+- The repository mimics the remote server's file system structure (e.g., `/var`, `/tmp`, `/etc`).
+- When debugging on the remote server, always compare the local repository path with the corresponding remote path.
+- Local repo root maps to the primary application directory on the server.
+
+## 3. Communication and Artifacts
+- All generated Markdown (`.md`) and shell script (`.sh`)files and documentation should be stored in the `/chat-artifacts` directory within this repository.
+- Avoid cluttering the root or other functional directories with chat logs or temporary documentation unless specified.
