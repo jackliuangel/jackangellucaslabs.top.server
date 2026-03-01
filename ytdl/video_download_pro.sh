@@ -6,9 +6,22 @@
 URL="$1"
 QUALITY="$2"
 SILENT_MODE="$3"
-BASE_DIR="/tmp/video_download"
-BASE_LOG_DIR="/tmp/video_download"
-YTDL_COOKIES_DIR="/home/ubuntu/ytdl"
+
+BASE_DIR_LOCAL="/Users/jackliu/Documents/github/jackangellucaslabs.top.server/ytdl/workdir"
+BASE_DIR_SERVER="/tmp/video_download"
+BASE_DIR=$BASE_DIR_LOCAL
+
+BASE_LOG_DIR_SERVER="/tmp/video_download"
+BASE_LOG_DIR_LOCAL="/Users/jackliu/Documents/github/jackangellucaslabs.top.server/ytdl/workdir"
+BASE_LOG_DIR=$BASE_LOG_DIR_LOCAL
+
+YTDL_COOKIES_DIR_LOCAL="/Users/jackliu/Documents/github/jackangellucaslabs.top.server/ytdl"
+YTDL_COOKIES_DIR_SERVER="/home/ubuntu/ytdl"
+YTDL_COOKIES_DIR=$YTDL_COOKIES_DIR_LOCAL
+
+DOWNLOAD_DIR_SERVER="$BASE_DIR/congliulyc@gmail.com"
+DOWNLOAD_DIR_LOCAL="/Users/jackliu/Library/Mobile\ Documents/com\~apple\~CloudDocs/Downloads/"
+DOWNLOAD_DIR=$DOWNLOAD_DIR_LOCAL
 
 # Generate timestamp for filename
 TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
@@ -57,8 +70,10 @@ get_youtube_format_selector() {
             echo "bv*[height<=1080][vcodec^=avc1]+ba[acodec^=mp4a]/bv*[height<=1080][ext=mp4]+ba[ext=m4a]/bv*[height<=1080]+ba/b[height<=1080]/best"
             ;;
         *)
-            # 默认：最好画质但限制在 MP4 容器
-            echo "bv*[ext=mp4]+ba[ext=m4a]/bv*+ba/b"
+            # Default: Select the best single-file format (prevents issues when ffmpeg is missing)
+            # Or bestvideo+bestaudio if they can be merged. Without ffmpeg, yt-dlp will fallback to 
+            # single-file best or download two files.
+            echo "bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best"
             ;;
     esac
 }
@@ -115,13 +130,12 @@ setup_platform_config() {
     case "$platform" in
         "youtube")
             COOKIES_FILE="$YTDL_COOKIES_DIR/cookies-youtube.txt"
-            DOWNLOAD_DIR="$BASE_DIR/congliulyc@gmail.com"
             LOG_FILE="$BASE_LOG_DIR/youtube_download.log"
             FORMAT_SELECTOR=$(get_youtube_format_selector "$QUALITY")
             ;;
         "bilibili")
             COOKIES_FILE="$YTDL_COOKIES_DIR/cookies-bilibili.txt"
-            DOWNLOAD_DIR="$BASE_DIR/congliulyc@gmail.com"
+
             LOG_FILE="$BASE_LOG_DIR/bilibili_download.log"
             FORMAT_SELECTOR=$(get_bilibili_format_selector "$QUALITY")
             ;;
@@ -261,6 +275,8 @@ download_youtube() {
     "$YTDLP_PATH" \
         ${po_token_flag:+"$po_token_flag"} ${po_token_val:+"$po_token_val"} \
         --cookies "$COOKIES_FILE" \
+        --js-runtimes node \
+        --remote-components ejs:github \
         -f "$FORMAT_SELECTOR" \
         --write-sub \
         --write-auto-sub \
@@ -586,6 +602,7 @@ main() {
         echo "  $0 https://youtu.be/Z99Njl3Fra0"
         echo "  $0 https://www.bilibili.com/video/BV1xx411c7mD"
         echo "  $0 https://b23.tv/abc123"
+        echo "  $0 https://www.youtube.com/watch?v=KPdD-GeoFk8"
         echo ""
         echo "Supported platforms: YouTube (youtu), Bilibili (bilibili.com, b23.tv)"
         exit 1

@@ -1,4 +1,5 @@
 
+import os
 import subprocess
 import sys
 import re
@@ -37,7 +38,17 @@ def get_visitor_data(video_url="https://www.youtube.com"):
 
 def get_po_token(visitor_data=None):
     try:
-        scanner_bin = "/home/ubuntu/.local/bin/rustypipe-botguard"
+        # Check local path first, then server path
+        scanner_bin = "/usr/local/bin/rustypipe-botguard"
+        if not os.path.exists(scanner_bin):
+            scanner_bin = "/opt/homebrew/bin/rustypipe-botguard"
+        if not os.path.exists(scanner_bin):
+            scanner_bin = "/home/ubuntu/.local/bin/rustypipe-botguard"
+        
+        if not os.path.exists(scanner_bin):
+            # If not found, log to stderr and return None instead of raising exception
+            print(f"Warning: rustypipe-botguard binary not found. Skipping PO Token generation.", file=sys.stderr)
+            return None
         
         cmd = [scanner_bin, "--no-snapshot"]
         if visitor_data:
