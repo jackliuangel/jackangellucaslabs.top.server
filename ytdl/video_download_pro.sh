@@ -20,7 +20,8 @@ YTDL_COOKIES_DIR_SERVER="/home/ubuntu/ytdl"
 YTDL_COOKIES_DIR=$YTDL_COOKIES_DIR_LOCAL
 
 DOWNLOAD_DIR_SERVER="$BASE_DIR/congliulyc@gmail.com"
-DOWNLOAD_DIR_LOCAL="/Users/jackliu/Library/Mobile\ Documents/com\~apple\~CloudDocs/Downloads/"
+# DOWNLOAD_DIR_LOCAL="$BASE_DIR/video_download"
+DOWNLOAD_DIR_LOCAL="/Users/jackliu/Library/Mobile Documents/com~apple~CloudDocs/Downloads"
 DOWNLOAD_DIR=$DOWNLOAD_DIR_LOCAL
 
 # Generate timestamp for filename
@@ -274,7 +275,7 @@ download_youtube() {
     # Execute download
     "$YTDLP_PATH" \
         ${po_token_flag:+"$po_token_flag"} ${po_token_val:+"$po_token_val"} \
-        --cookies "$COOKIES_FILE" \
+        --cookies-from-browser chrome \
         --js-runtimes node \
         --remote-components ejs:github \
         -f "$FORMAT_SELECTOR" \
@@ -467,28 +468,6 @@ process_download_result() {
                 log "No separate subtitle files found (may be embedded)"
             fi
             
-            # Zip the file to save space and hide filename
-            ZIP_FILE_NAME="${TIMESTAMP}.zip"
-            ZIP_FILE_PATH="$DOWNLOAD_DIR/$ZIP_FILE_NAME"
-            
-            log "Zipping files to $ZIP_FILE_PATH..."
-            
-            # Use zip -j to not store paths, and -m to move (delete source)
-            if [ -n "$DOWNLOADED_SUBTITLES" ]; then
-                zip -j -m "$ZIP_FILE_PATH" "$FILE_PATH" $DOWNLOADED_SUBTITLES >> "$LOG_FILE" 2>&1
-            else
-                zip -j -m "$ZIP_FILE_PATH" "$FILE_PATH" >> "$LOG_FILE" 2>&1
-            fi
-            
-            if [ $? -eq 0 ] && [ -f "$ZIP_FILE_PATH" ]; then
-                log "Zip encoding successful"
-                FILE_PATH="$ZIP_FILE_PATH"
-                FILE_NAME="$ZIP_FILE_NAME"
-                FILE_SIZE=$(du -h "$FILE_PATH" | cut -f1)
-            else
-                log "Zip encoding failed, using original file"
-            fi
-
             DOWNLOAD_HTTP_URL="https://jackangellucaslabs.top/files/$FILE_NAME"
             
             # Return file information
@@ -528,20 +507,6 @@ process_download_result() {
                 log "Downloaded video: $FILE_NAME (Quality: $quality_label)"
                 log "Video size: $FILE_SIZE"
                 log "Video path: $FILE_PATH"
-                
-                # Zip the file in fallback block too
-                ZIP_FILE_NAME="${TIMESTAMP}.zip"
-                ZIP_FILE_PATH="$DOWNLOAD_DIR/$ZIP_FILE_NAME"
-                
-                log "Zipping files to $ZIP_FILE_PATH..."
-                zip -j -m "$ZIP_FILE_PATH" "$FILE_PATH" >> "$LOG_FILE" 2>&1
-                
-                if [ $? -eq 0 ] && [ -f "$ZIP_FILE_PATH" ]; then
-                    log "Zip encoding successful"
-                    FILE_PATH="$ZIP_FILE_PATH"
-                    FILE_NAME="$ZIP_FILE_NAME"
-                    FILE_SIZE=$(du -h "$FILE_PATH" | cut -f1)
-                fi
                 
                 DOWNLOAD_HTTP_URL="https://jackangellucaslabs.top/files/$FILE_NAME"
                 
