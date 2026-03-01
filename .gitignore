@@ -5,3 +5,5 @@ ytdl/cookies-bilibili.txt
 .DS_Store
 
 chat-artifacts
+deploy-react-to-lightsail.skill
+ytdl/workdir/youtube_download.log
