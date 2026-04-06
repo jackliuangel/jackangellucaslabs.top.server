@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Duck n Drake — 打水漂</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<canvas id="c"></canvas>
+
+<div id="hud">
+  <div id="score-box">
+    <div id="skip-num">0</div>
+    <div id="skip-lbl">次跳跃</div>
+  </div>
+
+  <div id="best-box">最佳: <span id="best-num">0</span></div>
+
+  <div id="wind-box">
+    <canvas id="wc" width="120" height="142"></canvas>
+  </div>
+
+  <div id="stab-box">
+    <canvas id="sc" width="120" height="142"></canvas>
+  </div>
+
+  <div id="hint">向上滑动投石 ↑</div>
+
+  <canvas id="swc"></canvas>
+
+  <div id="res">
+    <div id="res-num">0</div>
+    <div id="res-msg"></div>
+    <div id="res-sub">再次滑动</div>
+  </div>
+</div>
+
+<script src="https://cdn.babylonjs.com/babylon.js"></script>
+<script src="game.js"></script>
+</body>
+</html>

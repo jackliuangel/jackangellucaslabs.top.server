@@ -1,0 +1,129 @@
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  background: #000;
+}
+
+#c {
+  width: 100%;
+  height: 100%;
+  display: block;
+  touch-action: none;
+  cursor: crosshair;
+}
+#c.dragging {
+  cursor: grabbing;
+}
+
+/* ── HUD overlay ── */
+#hud {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  pointer-events: none;
+  font-family: 'Arial Rounded MT Bold', Arial, sans-serif;
+}
+
+/* Score */
+#score-box {
+  position: absolute;
+  top: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  text-align: center;
+  color: #fff;
+  text-shadow: 2px 2px 0 #000, -1px -1px 0 #000;
+}
+#skip-num {
+  font-size: 60px;
+  font-weight: bold;
+  color: #FFE566;
+  line-height: 1;
+}
+#skip-lbl {
+  font-size: 18px;
+  color: #AAFFCC;
+}
+
+/* Best score */
+#best-box {
+  position: absolute;
+  top: 24px;
+  left: 18px;
+  color: #FFE566;
+  font-size: 17px;
+  text-shadow: 2px 2px 0 #000;
+}
+
+/* Wind indicator */
+#wind-box {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+}
+#wc {
+  display: block;
+}
+
+/* Stability level gauge */
+#stab-box {
+  position: absolute;
+  bottom: 12px;
+  left: 12px;
+}
+#sc {
+  display: block;
+}
+
+/* Throw hint */
+#hint {
+  position: absolute;
+  bottom: 52px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 20px;
+  text-shadow: 2px 2px 0 #000;
+  text-align: center;
+  transition: opacity 0.5s;
+}
+
+/* Swipe overlay canvas */
+#swc {
+  position: absolute;
+  top: 0; left: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+}
+
+/* Result panel */
+#res {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  text-align: center;
+  color: #fff;
+  display: none;
+}
+#res-num {
+  font-size: 90px;
+  font-weight: bold;
+  color: #FFE566;
+  text-shadow: 4px 4px 0 #000;
+  line-height: 1;
+}
+#res-msg {
+  font-size: 26px;
+  text-shadow: 2px 2px 0 #000;
+  margin-top: 6px;
+}
+#res-sub {
+  font-size: 17px;
+  color: #aef;
+  text-shadow: 1px 1px 0 #000;
+  margin-top: 8px;
+}
+
