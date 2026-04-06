@@ -66,6 +66,11 @@ Nginx services :
 - **参考项目**: gauge repeatability and replicability 学习项目， for Tony
 - **学习资源**: NA
 
+### dd
+- **技术栈**: babylon.js
+- **参考项目**: duck-n-drade ， 打水漂的小游戏， for lucas
+- **学习资源**: NA
+
 
 
 # How to setup nginx server and deploy a new react app *foobar* as example：
