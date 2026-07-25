@@ -17,7 +17,7 @@ key code:
 
 Nginx services :
 
-| 项目名称   | 技术栈               | 参考github repo                    | 学习来源              |
+| 项目名称   | 技术栈               | 参考github repo                     | 学习来源              |
 | -------- | -------------------- | ---------------------------------- | --------------------- |
 | gallery  | HTML + Tailwind CSS  | -                                  | -                     |
 | pose     | HTML + JavaScript    | -                                  | -                     |
@@ -25,7 +25,7 @@ Nginx services :
 | chores   | React Native + Expo  | React Native                       | YouTube: freeCodeCamp |
 | land     | React Native + THREE | React Native                       | AI studio GEMINI demo |
 | guess    | next.js + React Web  |                                    | gemini                |
-
+| tank     | HTML + babylon.js    | -                                  | -                     |
 
 ## 项目说明
 
@@ -71,6 +71,11 @@ Nginx services :
 - **参考项目**: duck-n-drade ， 打水漂的小游戏， for lucas
 - **学习资源**: NA
 
+### tank
+- **技术栈**: babylon.js
+- **参考项目**: 坦克大战的小游戏， 炮塔和地盘独立控制， for lucas
+- **学习资源**: NA
+
 
 
 # How to setup nginx server and deploy a new react app *foobar* as example：
@@ -113,3 +118,8 @@ Nginx services :
 
 
 
+# How to setup nginx server and deploy a html + js webpage *foobar* as example：
+1. 复制文件到 var/www/html/foobar 下
+2. 在etc/nginx/nginx.conf 下添加 foobar的入口
+# note：
+参见tank 
