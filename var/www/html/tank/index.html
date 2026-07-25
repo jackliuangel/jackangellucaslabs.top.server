@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>坦克大战</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="gameCanvas"></canvas>
+  <canvas id="minimap"></canvas>
+
+  <div id="hud">
+    <div id="health-container">
+      <div id="health-bar-bg"><div id="health-bar"></div></div>
+      <span id="health-text">100</span>
+    </div>
+    <div id="reload-ring">
+      <svg viewBox="0 0 44 44">
+        <circle cx="22" cy="22" r="18" fill="none" stroke="#333" stroke-width="5"/>
+        <circle id="reload-arc" cx="22" cy="22" r="18" fill="none"
+          stroke="#5dfc6a" stroke-width="5" stroke-linecap="round"
+          stroke-dasharray="113.1" stroke-dashoffset="0"
+          transform="rotate(-90 22 22)"/>
+      </svg>
+      <span id="fire-label">FIRE</span>
+    </div>
+    <div id="accuracy-ring">
+      <div id="crosshair">
+        <div class="ch-line ch-top"></div>
+        <div class="ch-line ch-bot"></div>
+        <div class="ch-line ch-left"></div>
+        <div class="ch-line ch-right"></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="scoreboard">
+    <span id="ally-score" class="score-ally">● 3</span>
+    <span class="score-vs">vs</span>
+    <span id="enemy-score" class="score-enemy">● 3</span>
+  </div>
+
+  <div id="left-zone" class="joy-zone"></div>
+  <div id="right-zone" class="joy-zone"></div>
+  <button id="fire-btn">🔥</button>
+  <div id="range-btns">
+    <button id="range-near">▼ 近</button>
+    <span id="range-display">60m</span>
+    <button id="range-far">▲ 远</button>
+  </div>
+
+  <div id="overlay">
+    <h1 id="overlay-title"></h1>
+    <p id="overlay-sub"></p>
+    <button id="restart-btn">再玩一次</button>
+  </div>
+
+  <div id="lobby">
+    <div class="lobby-box">
+      <h1 class="lobby-title">坦克大战</h1>
+      <div class="lobby-row">
+        <label>我方坦克（含玩家）</label>
+        <div class="lobby-counter">
+          <button class="cnt-btn" data-target="ally" data-delta="-1">−</button>
+          <span id="ally-count-display">3</span>
+          <button class="cnt-btn" data-target="ally" data-delta="1">+</button>
+        </div>
+      </div>
+      <div class="lobby-row">
+        <label>敌方坦克</label>
+        <div class="lobby-counter">
+          <button class="cnt-btn" data-target="enemy" data-delta="-1">−</button>
+          <span id="enemy-count-display">3</span>
+          <button class="cnt-btn" data-target="enemy" data-delta="1">+</button>
+        </div>
+      </div>
+      <button id="start-btn">开始游戏</button>
+    </div>
+  </div>
+
+  <div id="tutorial">
+    <div class="tut-box">
+      <div class="tut-row">
+        <div class="tut-item">
+          <div class="tut-icon">◎</div>
+          <div class="tut-label">左摇杆<br><b>炮塔旋转</b></div>
+        </div>
+        <div class="tut-sep">+</div>
+        <div class="tut-item">
+          <div class="tut-icon">◎</div>
+          <div class="tut-label">右摇杆<br><b>底盘移动</b></div>
+        </div>
+      </div>
+      <p>消灭所有红方坦克！<br>保护你自己！</p>
+    </div>
+  </div>
+
+  <script src="https://cdn.babylonjs.com/babylon.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/nipplejs@0.10.1/dist/nipplejs.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/simplex-noise@2.4.0/simplex-noise.js"></script>
+
+  <script src="src/config.js"></script>
+  <script src="src/terrain.js"></script>
+  <script src="src/audio.js"></script>
+  <script src="src/destructible.js"></script>
+  <script src="src/tank.js"></script>
+  <script src="src/projectile.js"></script>
+  <script src="src/controls.js"></script>
+  <script src="src/camera.js"></script>
+  <script src="src/ai.js"></script>
+  <script src="src/minimap.js"></script>
+  <script src="src/ui.js"></script>
+  <script src="src/game.js"></script>
+</body>
+</html>
