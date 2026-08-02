@@ -32,5 +32,8 @@ const CameraSystem = (() => {
     _camera.setTarget(new BABYLON.Vector3(tx, ty + 2, tz));
   }
 
-  return { init, update };
+  function getYaw() { return _camYaw; }
+  function getFov() { return _camera ? _camera.fov : 0.8; }
+
+  return { init, update, getYaw, getFov };
 })();

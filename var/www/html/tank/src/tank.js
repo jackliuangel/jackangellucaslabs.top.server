@@ -118,21 +118,17 @@ class Tank {
       this._buildHealthBar(scene);
     }
 
-    // Direction arrow — triangle pointing forward (+Z)
-    const arrow = BABYLON.MeshBuilder.CreateCylinder('arrow', {
-      height: 0.12, diameterTop: 0, diameterBottom: 1.4, tessellation: 3
+    // Yellow star (sphere) at hull front to mark the vehicle front direction
+    const frontStar = BABYLON.MeshBuilder.CreateSphere('frontStar', {
+      diameter: 0.55, segments: 6
     }, scene);
-    arrow.rotation.y = Math.PI; // point toward +Z
-    arrow.position.set(0, 0.66, 2.0);
-    arrow.parent = this.root;
-    arrow.isPickable = false;
-    const arrowMat = new BABYLON.StandardMaterial('arrowMat_' + this.team, scene);
-    arrowMat.diffuseColor = this.team === 'enemy'
-      ? new BABYLON.Color3(1, 0.15, 0.15)
-      : new BABYLON.Color3(0.15, 1, 0.3);
-    arrowMat.emissiveColor = arrowMat.diffuseColor.scale(0.6);
-    arrowMat.disableLighting = false;
-    arrow.material = arrowMat;
+    frontStar.position.set(0, 0.72, 2.3);
+    frontStar.parent = this.root;
+    frontStar.isPickable = false;
+    const starMat = new BABYLON.StandardMaterial('starMat_' + this.team, scene);
+    starMat.diffuseColor = new BABYLON.Color3(1, 0.95, 0.1);
+    starMat.emissiveColor = new BABYLON.Color3(0.9, 0.8, 0);
+    frontStar.material = starMat;
 
     // Collision marker on hullMesh for projectile detection
     this.hullMesh.metadata = { tank: this };

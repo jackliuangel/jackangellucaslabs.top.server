@@ -1,9 +1,10 @@
 const Controls = (() => {
   const _state = {
-    throttle: 0,   // -1 to 1
-    steer: 0,      // -1 to 1 (hull turn rate)
-    turretSteer: 0,// -1 to 1
-    targetDist: 60, // desired aim distance in world units
+    throttle: 0,        // -1 to 1
+    steer: 0,           // -1 to 1 (hull turn rate)
+    turretSteer: 0,     // -1 to 1
+    turretVertical: 0,  // -1 to 1  (right joy up/down → range adjust)
+    targetDist: 60,     // desired aim distance in world units
     shoot: false
   };
 
@@ -37,13 +38,16 @@ const Controls = (() => {
       size: 120
     });
 
+    // Left joystick → hull movement (same as WASD)
     leftJoy.on('move', (e, data) => {
       const angle = data.angle.radian;
       const force = Math.min(data.force, 1);
-      _state.turretSteer = -Math.cos(angle) * force;
+      _state.throttle = Math.sin(angle) * force;
+      _state.steer = Math.cos(angle) * force;
     });
     leftJoy.on('end', () => {
-      _state.turretSteer = 0;
+      _state.throttle = 0;
+      _state.steer = 0;
     });
 
     // Range buttons (touch + mouse, continuous while held)
@@ -66,57 +70,28 @@ const Controls = (() => {
     farBtn.addEventListener('mouseup',     () => clearInterval(_farInterval));
     farBtn.addEventListener('mouseleave',  () => clearInterval(_farInterval));
 
+    // Right joystick → turret rotation (left/right) + range adjust (up/down), same as arrow keys
     rightJoy.on('move', (e, data) => {
       const angle = data.angle.radian;
       const force = Math.min(data.force, 1);
-      _state.throttle = Math.sin(angle) * force;
-      _state.steer = Math.cos(angle) * force;
+      _state.turretSteer = Math.cos(angle) * force;
+      _state.turretVertical = Math.sin(angle) * force; // positive = up = farther
     });
     rightJoy.on('end', () => {
-      _state.throttle = 0;
-      _state.steer = 0;
+      _state.turretSteer = 0;
+      _state.turretVertical = 0;
     });
 
-    // Fire button - simplified for reliable iPad touch
-    const fireBtn = document.getElementById('fire-btn');
-
-    // Touchstart - set shoot flag
-    fireBtn.addEventListener('touchstart', e => {
-      e.preventDefault();
-      _state.shoot = true;
-      fireBtn.classList.add('pressed');
-    }, { passive: false });
-
-    // Touchend - don't reset, let getInput() consume it
-    fireBtn.addEventListener('touchend', e => {
-      e.preventDefault();
-      fireBtn.classList.remove('pressed');
-    }, { passive: false });
-
-    // Touchcancel
-    fireBtn.addEventListener('touchcancel', e => {
-      e.preventDefault();
-      fireBtn.classList.remove('pressed');
-    }, { passive: false });
-
-    // Click as fallback (works on both desktop and mobile)
-    fireBtn.addEventListener('click', e => {
+    // Fire button
+    // touchend/mouseup do NOT reset _state.shoot — getInput() consumes it once per frame.
+    // Without this, a fast tap on iPad fires touchend before the next render frame,
+    // clearing the flag before getInput() ever reads it.
+    document.getElementById('fire-btn').addEventListener('touchstart', e => {
       e.preventDefault();
       _state.shoot = true;
     });
-
-    // Mouse events for desktop
-    fireBtn.addEventListener('mousedown', () => {
+    document.getElementById('fire-btn').addEventListener('mousedown', () => {
       _state.shoot = true;
-      fireBtn.classList.add('pressed');
-    });
-
-    fireBtn.addEventListener('mouseup', () => {
-      fireBtn.classList.remove('pressed');
-    });
-
-    fireBtn.addEventListener('mouseleave', () => {
-      fireBtn.classList.remove('pressed');
     });
   }
 
@@ -149,9 +124,13 @@ const Controls = (() => {
     // QE or ArrowLeft/Right = turret rotation
     if (_keys['KeyQ'] || _keys['ArrowLeft'])  turretSteer = -1;
     if (_keys['KeyE'] || _keys['ArrowRight']) turretSteer =  1;
-    // ArrowUp/Down = range adjust (farther / nearer)
+    // ArrowUp/Down or right-joystick vertical = range adjust (farther / nearer)
     if (_keys['ArrowUp'])   { _state.targetDist = Math.min(120, _state.targetDist + 1.2); _updateRangeDisplay(); }
     if (_keys['ArrowDown']) { _state.targetDist = Math.max(15,  _state.targetDist - 1.2); _updateRangeDisplay(); }
+    if (_state.turretVertical !== 0) {
+      _state.targetDist = Math.min(120, Math.max(15, _state.targetDist + _state.turretVertical * 1.2));
+      _updateRangeDisplay();
+    }
 
     const elevation = _calcElevation(_state.targetDist);
 
