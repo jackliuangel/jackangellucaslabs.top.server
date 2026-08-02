@@ -173,9 +173,8 @@ body {
 #fire-btn {
   position: fixed;
   bottom: 180px;
-  right: 50%;
-  transform: translateX(50%);
-  z-index: 20;
+  right: 110px;
+  z-index: 30;
   width: 64px;
   height: 64px;
   border-radius: 50%;
@@ -188,11 +187,16 @@ body {
   justify-content: center;
   backdrop-filter: blur(4px);
   transition: opacity 0.2s, transform 0.1s;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
 }
 
 #fire-btn:active,
 #fire-btn.pressed {
-  transform: translateX(50%) scale(0.92);
+  transform: scale(0.92);
+  background: rgba(255, 80, 80, 0.85);
 }
 #fire-btn.disabled { opacity: 0.35; pointer-events: none; }
 

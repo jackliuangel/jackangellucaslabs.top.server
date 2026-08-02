@@ -77,79 +77,45 @@ const Controls = (() => {
       _state.steer = 0;
     });
 
-    // Fire button
-    // touchend/mouseup do NOT reset _state.shoot — getInput() consumes it once per frame.
-    // Without this, a fast tap on iPad fires touchend before the next render frame,
-    // clearing the flag before getInput() ever reads it.
+    // Fire button - simplified for reliable iPad touch
     const fireBtn = document.getElementById('fire-btn');
-    let _touchStartTime = 0;
-    let _isTouching = false;
-    let _fireConfirmed = false;
 
-    // Touch events for mobile devices (iPad, etc.)
+    // Touchstart - set shoot flag
     fireBtn.addEventListener('touchstart', e => {
       e.preventDefault();
-      e.stopPropagation();
-      
-      _touchStartTime = Date.now();
-      _isTouching = true;
-      _fireConfirmed = true;
       _state.shoot = true;
-      
-      // Visual feedback (via CSS class for better performance)
       fireBtn.classList.add('pressed');
-      
-      // Defensive: requestAnimationFrame to ensure the flag is set
-      requestAnimationFrame(() => {
-        if (_isTouching && _fireConfirmed) {
-          _state.shoot = true;
-        }
-      });
     }, { passive: false });
-    
+
+    // Touchend - don't reset, let getInput() consume it
     fireBtn.addEventListener('touchend', e => {
       e.preventDefault();
-      e.stopPropagation();
-      
-      const duration = Date.now() - _touchStartTime;
-      _isTouching = false;
-      
-      // For quick taps (< 150ms), reset the flag again in touchend
-      // This handles the case where touchstart and getInput() have timing issues
-      if (duration < 150 && _fireConfirmed) {
-        _state.shoot = true;
-      }
-      
-      _fireConfirmed = false;
       fireBtn.classList.remove('pressed');
     }, { passive: false });
-    
+
+    // Touchcancel
     fireBtn.addEventListener('touchcancel', e => {
       e.preventDefault();
-      e.stopPropagation();
-      _isTouching = false;
-      _fireConfirmed = false;
       fireBtn.classList.remove('pressed');
     }, { passive: false });
-    
+
     // Click as fallback (works on both desktop and mobile)
     fireBtn.addEventListener('click', e => {
       e.preventDefault();
       _state.shoot = true;
     });
-    
+
     // Mouse events for desktop
     fireBtn.addEventListener('mousedown', () => {
       _state.shoot = true;
       fireBtn.classList.add('pressed');
     });
-    
+
     fireBtn.addEventListener('mouseup', () => {
       fireBtn.classList.remove('pressed');
     });
-    
+
     fireBtn.addEventListener('mouseleave', () => {
-      _isTouching = false;
       fireBtn.classList.remove('pressed');
     });
   }
