@@ -172,9 +172,9 @@ body {
 
 #fire-btn {
   position: fixed;
-  bottom: 80px;
-  left: 50%;
-  transform: translateX(-50%);
+  bottom: 180px;
+  right: 50%;
+  transform: translateX(50%);
   z-index: 20;
   width: 64px;
   height: 64px;
@@ -190,7 +190,7 @@ body {
   transition: opacity 0.2s, transform 0.1s;
 }
 
-#fire-btn:active { transform: translateX(-50%) scale(0.92); }
+#fire-btn:active { transform: translateX(50%) scale(0.92); }
 #fire-btn.disabled { opacity: 0.35; pointer-events: none; }
 
 #range-btns {

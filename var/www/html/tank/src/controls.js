@@ -81,12 +81,40 @@ const Controls = (() => {
     // touchend/mouseup do NOT reset _state.shoot — getInput() consumes it once per frame.
     // Without this, a fast tap on iPad fires touchend before the next render frame,
     // clearing the flag before getInput() ever reads it.
-    document.getElementById('fire-btn').addEventListener('touchstart', e => {
+    const fireBtn = document.getElementById('fire-btn');
+    
+    // Touch events for mobile devices (iPad, etc.)
+    fireBtn.addEventListener('touchstart', e => {
       e.preventDefault();
+      e.stopPropagation();
+      _state.shoot = true;
+      // Visual feedback
+      fireBtn.style.transform = 'translateX(50%) scale(0.92)';
+    }, { passive: false });
+    
+    fireBtn.addEventListener('touchend', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      fireBtn.style.transform = 'translateX(50%) scale(1)';
+    }, { passive: false });
+    
+    fireBtn.addEventListener('touchcancel', e => {
+      e.preventDefault();
+      e.stopPropagation();
+      fireBtn.style.transform = 'translateX(50%) scale(1)';
+    }, { passive: false });
+    
+    // Mouse events for desktop
+    fireBtn.addEventListener('mousedown', () => {
       _state.shoot = true;
     });
-    document.getElementById('fire-btn').addEventListener('mousedown', () => {
-      _state.shoot = true;
+    
+    fireBtn.addEventListener('mouseup', () => {
+      fireBtn.style.transform = 'translateX(50%) scale(1)';
+    });
+    
+    fireBtn.addEventListener('mouseleave', () => {
+      fireBtn.style.transform = 'translateX(50%) scale(1)';
     });
   }
 
