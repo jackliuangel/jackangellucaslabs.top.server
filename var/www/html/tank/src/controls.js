@@ -78,18 +78,15 @@ const Controls = (() => {
     });
 
     // Fire button
+    // touchend/mouseup do NOT reset _state.shoot — getInput() consumes it once per frame.
+    // Without this, a fast tap on iPad fires touchend before the next render frame,
+    // clearing the flag before getInput() ever reads it.
     document.getElementById('fire-btn').addEventListener('touchstart', e => {
       e.preventDefault();
       _state.shoot = true;
     });
-    document.getElementById('fire-btn').addEventListener('touchend', () => {
-      _state.shoot = false;
-    });
     document.getElementById('fire-btn').addEventListener('mousedown', () => {
       _state.shoot = true;
-    });
-    document.getElementById('fire-btn').addEventListener('mouseup', () => {
-      _state.shoot = false;
     });
   }
 
