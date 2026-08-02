@@ -190,7 +190,10 @@ body {
   transition: opacity 0.2s, transform 0.1s;
 }
 
-#fire-btn:active { transform: translateX(50%) scale(0.92); }
+#fire-btn:active,
+#fire-btn.pressed {
+  transform: translateX(50%) scale(0.92);
+}
 #fire-btn.disabled { opacity: 0.35; pointer-events: none; }
 
 #range-btns {

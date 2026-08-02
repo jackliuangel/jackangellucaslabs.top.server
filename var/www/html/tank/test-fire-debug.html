@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fire Button Debug Test</title>
+  <style>
+    body {
+      padding: 20px;
+      font-family: 'Courier New', monospace;
+      background: #1a1a2e;
+      color: #fff;
+      touch-action: none;
+    }
+    #fire-btn {
+      width: 100px;
+      height: 100px;
+      border-radius: 50%;
+      background: #dc3232;
+      color: white;
+      font-size: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 20px auto;
+      border: 4px solid rgba(255,255,255,0.5);
+      touch-action: none;
+      -webkit-user-select: none;
+      user-select: none;
+      -webkit-touch-callout: none;
+    }
+    #fire-btn:active, #fire-btn.touching {
+      transform: scale(0.9);
+      background: #ff4444;
+    }
+    #log {
+      background: #0d0d1a;
+      padding: 15px;
+      max-height: 400px;
+      overflow-y: auto;
+      border: 2px solid #5dfc6a;
+      white-space: pre-wrap;
+      font-size: 12px;
+      margin-top: 20px;
+    }
+    .controls {
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 20px 0;
+    }
+    .controls button {
+      padding: 10px 20px;
+      font-size: 14px;
+      cursor: pointer;
+      background: #5dfc6a;
+      border: none;
+      border-radius: 8px;
+      font-weight: bold;
+    }
+    .info-panel {
+      background: #0d0d1a;
+      border: 2px solid #2ecc40;
+      padding: 15px;
+      margin: 15px 0;
+      border-radius: 10px;
+    }
+    .status-ok { color: #5dfc6a; }
+    .status-fail { color: #ff4444; font-weight: bold; }
+    .event-timestamp { color: #888; }
+    .event-shoot { color: #ffcc00; font-weight: bold; }
+  </style>
+</head>
+<body>
+  <h2>🔥 Fire Button iPad 触摸调试</h2>
+
+  <div class="info-panel">
+    <div><strong>shootState:</strong> <span id="shoot-state" class="status-fail">false</span></div>
+    <div><strong>gameLoop 调用:</strong> <span id="loop-count">0</span></div>
+    <div><strong>发射检测:</strong> <span id="fire-detected" class="status-fail">未触发</span></div>
+    <div><strong>当前实现:</strong> <span id="current-impl">无</span></div>
+  </div>
+
+  <div id="fire-btn">FIRE</div>
+
+  <div class="controls">
+    <button onclick="testOriginal()">原始实现</button>
+    <button onclick="testTouchStartOnly()">仅 touchstart</button>
+    <button onclick="testWithClick()">Click 事件</button>
+    <button onclick="testPointerEvents()">Pointer 事件</button>
+    <button onclick="testImproved()">改进实现</button>
+    <button onclick="clearLog()">清空日志</button>
+  </div>
+
+  <h3>事件日志:</h3>
+  <div id="log">准备测试...</div>
+
+  <script>
+    const logDiv = document.getElementById('log');
+    const fireBtn = document.getElementById('fire-btn');
+    const shootStateDiv = document.getElementById('shoot-state');
+    const loopCountDiv = document.getElementById('loop-count');
+    const fireDetectedDiv = document.getElementById('fire-detected');
+    const currentImplDiv = document.getElementById('current-impl');
+
+    let shootState = false;
+    let loopCount = 0;
+    let fireDetected = false;
+    let currentImpl = '';
+    let touchStartTime = 0;
+    let isTouching = false;
+
+    function log(message, type = '') {
+      const timestamp = new Date().toISOString().substr(11, 12);
+      const entry = document.createElement('div');
+      entry.innerHTML = `<span class="event-timestamp">[${timestamp}]</span> ${message}`;
+      if (type) entry.className = type;
+      logDiv.appendChild(entry);
+      logDiv.scrollTop = logDiv.scrollHeight;
+      console.log(`[${timestamp}] ${message}`);
+    }
+
+    function updateStatus() {
+      shootStateDiv.textContent = shootState;
+      shootStateDiv.className = shootState ? 'status-ok' : 'status-fail';
+      loopCountDiv.textContent = loopCount;
+      fireDetectedDiv.textContent = fireDetected ? '✅ 已触发' : '未触发';
+      fireDetectedDiv.className = fireDetected ? 'status-ok' : 'status-fail';
+    }
+
+    function clearLog() {
+      logDiv.innerHTML = '';
+      log('日志已清空');
+    }
+
+    function resetTest() {
+      shootState = false;
+      fireDetected = false;
+      loopCount = 0;
+      isTouching = false;
+      fireBtn.classList.remove('touching');
+      clearLog();
+      updateStatus();
+    }
+
+    // 模拟游戏循环的 getInput()
+    function gameLoop() {
+      loopCount++;
+      const shootNow = shootState;
+      shootState = false; // 关键：消费 shoot 标志
+
+      if (shootNow) {
+        fireDetected = true;
+        log(`<span class="event-shoot">🎯 getInput() 捕获到射击！ loop #${loopCount}</span>`, 'status-ok');
+      }
+
+      updateStatus();
+    }
+
+    // 启动游戏循环（60 FPS）
+    let loopInterval = null;
+    function startGameLoop() {
+      if (loopInterval) clearInterval(loopInterval);
+      loopInterval = setInterval(gameLoop, 16); // ~60fps
+    }
+    startGameLoop();
+
+    function clearEventListeners() {
+      const newBtn = fireBtn.cloneNode(true);
+      fireBtn.parentNode.replaceChild(newBtn, fireBtn);
+      return newBtn;
+    }
+
+    // ========== 实现方案 ==========
+
+    // 方案1：原始实现（来自项目）
+    function testOriginal() {
+      resetTest();
+      currentImpl = '原始实现';
+      currentImplDiv.textContent = currentImpl;
+
+      log('=== 开始测试：原始实现 ===');
+
+      fireBtn.addEventListener('touchstart', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        isTouching = true;
+        fireBtn.classList.add('touching');
+        touchStartTime = Date.now();
+        shootState = true;
+        log(`touchstart: shootState=${shootState}, isTouching=${isTouching}`);
+      }, { passive: false });
+
+      fireBtn.addEventListener('touchend', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        isTouching = false;
+        fireBtn.classList.remove('touching');
+        const duration = Date.now() - touchStartTime;
+        log(`touchend: duration=${duration}ms (注意：不重置 shootState，由 getInput() 消费)`);
+      }, { passive: false });
+
+      fireBtn.addEventListener('touchcancel', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        isTouching = false;
+        fireBtn.classList.remove('touching');
+        log('touchcancel');
+      }, { passive: false });
+
+      fireBtn.addEventListener('mousedown', () => {
+        shootState = true;
+        log(`mousedown: shootState=${shootState}`);
+      });
+    }
+
+    // 方案2：仅使用 touchstart（简化版）
+    function testTouchStartOnly() {
+      resetTest();
+      currentImpl = '仅 touchstart';
+      currentImplDiv.textContent = currentImpl;
+
+      log('=== 开始测试：仅 touchstart ===');
+      log('每次 touchstart 都设置 shootState=true，不管当前状态');
+
+      fireBtn.addEventListener('touchstart', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        shootState = true; // 简单设置，不关心之前状态
+        log(`touchstart: shootState=${shootState} (强制设置为 true)`);
+      }, { passive: false });
+
+      fireBtn.addEventListener('mousedown', () => {
+        shootState = true;
+        log(`mousedown: shootState=${shootState}`);
+      });
+    }
+
+    // 方案3：使用 click 事件
+    function testWithClick() {
+      resetTest();
+      currentImpl = 'Click 事件';
+      currentImplDiv.textContent = currentImpl;
+
+      log('=== 开始测试：Click 事件 ===');
+      log('注意：click 事件在 touchstart 之后触发，可能有 ~300ms 延迟');
+
+      fireBtn.addEventListener('click', e => {
+        e.preventDefault();
+        shootState = true;
+        log(`click: shootState=${shootState}`);
+      });
+    }
+
+    // 方案4：使用 Pointer Events（现代 API）
+    function testPointerEvents() {
+      resetTest();
+      currentImpl = 'Pointer 事件';
+      currentImplDiv.textContent = currentImpl;
+
+      log('=== 开始测试：Pointer Events ===');
+      log('Pointer Events 统一了鼠标和触摸事件');
+
+      fireBtn.addEventListener('pointerdown', e => {
+        e.preventDefault();
+        fireBtn.classList.add('touching');
+        shootState = true;
+        log(`pointerdown: shootState=${shootState}, pointerType=${e.pointerType}`);
+      });
+
+      fireBtn.addEventListener('pointerup', e => {
+        e.preventDefault();
+        fireBtn.classList.remove('touching');
+        log(`pointerup: (不重置 shootState)`);
+      });
+
+      fireBtn.addEventListener('pointercancel', e => {
+        e.preventDefault();
+        fireBtn.classList.remove('touching');
+        log(`pointercancel`);
+      });
+    }
+
+    // 方案5：改进实现（添加防御性编程）
+    function testImproved() {
+      resetTest();
+      currentImpl = '改进实现';
+      currentImplDiv.textContent = currentImpl;
+
+      log('=== 开始测试：改进实现 ===');
+      log('添加多次检测、防御性设置、兼容性处理');
+
+      let touchCount = 0;
+
+      fireBtn.addEventListener('touchstart', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        touchCount++;
+        isTouching = true;
+        fireBtn.classList.add('touching');
+        touchStartTime = Date.now();
+        shootState = true; // 设置标志
+
+        // 也在下一帧再次设置，防止被意外清除
+        requestAnimationFrame(() => {
+          if (isTouching) {
+            shootState = true;
+            log(`touchstart+RAF: 再次确认 shootState=${shootState}`);
+          }
+        });
+
+        log(`touchstart #${touchCount}: shootState=${shootState}`);
+      }, { passive: false });
+
+      fireBtn.addEventListener('touchend', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        isTouching = false;
+        fireBtn.classList.remove('touching');
+        const duration = Date.now() - touchStartTime;
+
+        // 如果是快速点击（< 150ms），在 touchend 时也设置一次
+        if (duration < 150) {
+          shootState = true;
+          log(`touchend: 快速点击(${duration}ms)，重新设置 shootState=${shootState}`);
+        } else {
+          log(`touchend: duration=${duration}ms`);
+        }
+      }, { passive: false });
+
+      fireBtn.addEventListener('touchcancel', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        isTouching = false;
+        fireBtn.classList.remove('touching');
+        log('touchcancel');
+      }, { passive: false });
+
+      // 同时支持 click 作为后备
+      fireBtn.addEventListener('click', e => {
+        e.preventDefault();
+        shootState = true;
+        log(`click: 后备触发 shootState=${shootState}`);
+      });
+
+      fireBtn.addEventListener('mousedown', () => {
+        shootState = true;
+        log(`mousedown: shootState=${shootState}`);
+      });
+    }
+
+    // 初始化
+    log('准备就绪！请选择一个实现方案进行测试');
+    log('然后在 iPad/触摸设备上点击 FIRE 按钮');
+    log('观察日志中是否出现 "🎯 getInput() 捕获到射击！"');
+  </script>
+</body>
+</html>
