@@ -3,7 +3,8 @@
     "allow": [
       "Bash(open *)",
       "Bash(python3 *)",
-      "Bash(node *)"
+      "Bash(node *)",
+      "Bash(lsof -ti:8080)"
     ]
   }
 }
