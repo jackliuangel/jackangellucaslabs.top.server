@@ -48,6 +48,8 @@
     ambient.diffuse = new BABYLON.Color3(0.7, 0.85, 1.0);
     ambient.groundColor = new BABYLON.Color3(0.45, 0.4, 0.3);
 
+    Weather.init(scene, sun, ambient);
+
     // Systems init
     Terrain.create(scene);
     Destructibles.populate(scene);
@@ -119,6 +121,7 @@
 
       playerTank.update(dt, input);
       Audio.setEngineSpeed(playerTank.speed);
+      Weather.update(dt, playerTank.root.position);
 
       for (const ai of allyAIs) ai.update(dt, playerTank, allTanks);
       for (const ai of enemyAIs) ai.update(dt, playerTank, allTanks);

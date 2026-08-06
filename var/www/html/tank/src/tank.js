@@ -38,11 +38,9 @@ class Tank {
       : isAlly
         ? new BABYLON.Color3(0.1, 0.5, 0.3)
         : new BABYLON.Color3(0.55, 0.12, 0.08);
-    const turretColor = isPlayer
-      ? new BABYLON.Color3(0.12, 0.38, 0.12)
-      : isAlly
-        ? new BABYLON.Color3(0.08, 0.42, 0.25)
-        : new BABYLON.Color3(0.45, 0.1, 0.06);
+    const turretColor = (isPlayer || isAlly)
+      ? new BABYLON.Color3(0.72, 0.74, 0.72)
+      : new BABYLON.Color3(0.52, 0.50, 0.50);
 
     // Root transform (world position + hull rotation)
     this.root = new BABYLON.TransformNode('tank_root', scene);
@@ -118,16 +116,70 @@ class Tank {
       this._buildHealthBar(scene);
     }
 
-    // Yellow star (sphere) at hull front to mark the vehicle front direction
-    const frontStar = BABYLON.MeshBuilder.CreateSphere('frontStar', {
-      diameter: 0.55, segments: 6
-    }, scene);
+    // Five-pointed star on hull top to mark the vehicle front direction
+    const frontStar = (() => {
+      const outerR = 0.275, innerR = 0.11, thickness = 0.05;
+      const positions = [], indices = [], normals = [], uvs = [];
+
+      // 10 perimeter vertices (alternating outer/inner tips) + 1 centre, top face
+      // then same again for bottom face = 22 vertices total
+      const pts = [];
+      for (let i = 0; i < 10; i++) {
+        const a = (i * Math.PI / 5) - Math.PI / 2; // start pointing up (+Z)
+        const r = i % 2 === 0 ? outerR : innerR;
+        pts.push([Math.sin(a) * r, Math.cos(a) * r]); // XZ plane
+      }
+
+      // Top face (y = +thickness/2)
+      const yt = thickness / 2;
+      positions.push(0, yt, 0); normals.push(0,1,0); uvs.push(0.5,0.5); // centre idx 0
+      for (const [x, z] of pts) {
+        positions.push(x, yt, z); normals.push(0,1,0); uvs.push(x/outerR*0.5+0.5, z/outerR*0.5+0.5);
+      }
+      for (let i = 0; i < 10; i++) {
+        indices.push(0, i + 1, ((i + 1) % 10) + 1);
+      }
+
+      // Bottom face (y = -thickness/2)
+      const yb = -thickness / 2;
+      const base = 11;
+      positions.push(0, yb, 0); normals.push(0,-1,0); uvs.push(0.5,0.5); // centre idx 11
+      for (const [x, z] of pts) {
+        positions.push(x, yb, z); normals.push(0,-1,0); uvs.push(x/outerR*0.5+0.5, z/outerR*0.5+0.5);
+      }
+      for (let i = 0; i < 10; i++) {
+        indices.push(base, base + ((i + 1) % 10) + 1, base + i + 1);
+      }
+
+      // Side quads connecting top and bottom perimeter
+      for (let i = 0; i < 10; i++) {
+        const t0 = i + 1, t1 = ((i + 1) % 10) + 1;
+        const b0 = base + i + 1, b1 = base + ((i + 1) % 10) + 1;
+        const vi = positions.length / 3;
+        const [x0,z0] = pts[i], [x1,z1] = pts[(i+1)%10];
+        const nx = (z0+z1)*0.5, nz = -(x0+x1)*0.5; // outward normal approx
+        positions.push(x0,yt,z0, x1,yt,z1, x0,yb,z0, x1,yb,z1);
+        normals.push(nx,0,nz, nx,0,nz, nx,0,nz, nx,0,nz);
+        uvs.push(0,1, 1,1, 0,0, 1,0);
+        indices.push(vi,vi+1,vi+2, vi+1,vi+3,vi+2);
+      }
+
+      const vd = new BABYLON.VertexData();
+      vd.positions = positions; vd.indices = indices;
+      vd.normals   = normals;   vd.uvs = uvs;
+
+      const m = new BABYLON.Mesh('frontStar', scene);
+      vd.applyToMesh(m);
+      return m;
+    })();
+
     frontStar.position.set(0, 0.72, 2.3);
     frontStar.parent = this.root;
     frontStar.isPickable = false;
     const starMat = new BABYLON.StandardMaterial('starMat_' + this.team, scene);
     starMat.diffuseColor = new BABYLON.Color3(1, 0.95, 0.1);
     starMat.emissiveColor = new BABYLON.Color3(0.9, 0.8, 0);
+    starMat.backFaceCulling = false;
     frontStar.material = starMat;
 
     // Collision marker on hullMesh for projectile detection
@@ -216,17 +268,21 @@ class Tank {
 
     let hullColor, turretColor;
     if (isFriendly) {
-      // Full HP: bright green; low HP: very dark green (nearly black-green)
-      const g = 0.45 - dmg * 0.38; // 0.45 → 0.07
-      const rb = 0.15 - dmg * 0.13; // 0.15 → 0.02
+      // Hull: full HP bright green → near-black green at low HP
+      const g = 0.45 - dmg * 0.38;
+      const rb = 0.15 - dmg * 0.13;
       hullColor   = new BABYLON.Color3(rb, g, rb);
-      turretColor = new BABYLON.Color3(rb * 0.8, g * 0.85, rb * 0.8);
+      // Turret: light grey darkening with damage
+      const grey = 0.72 - dmg * 0.58;
+      turretColor = new BABYLON.Color3(grey, grey, grey);
     } else {
       // Full HP: mid red; high damage: deep dark red
-      const r = 0.55 - dmg * 0.38; // 0.55 → 0.17
-      const gb = 0.12 - dmg * 0.10; // 0.12 → 0.02
+      const r = 0.55 - dmg * 0.38;
+      const gb = 0.12 - dmg * 0.10;
       hullColor   = new BABYLON.Color3(r, gb, gb);
-      turretColor = new BABYLON.Color3(r * 0.82, gb * 0.85, gb * 0.85);
+      // Enemy turret: dark grey tinting red with damage
+      const grey = 0.40 - dmg * 0.28;
+      turretColor = new BABYLON.Color3(grey + gb * 0.5, grey * 0.85, grey * 0.85);
     }
 
     if (this.hullMesh && this.hullMesh.material)   this.hullMesh.material.diffuseColor   = hullColor;

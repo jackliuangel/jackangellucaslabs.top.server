@@ -356,6 +356,66 @@ console.log('\n=== 4. Ballistic elevation for targetDist ===');
   }
 }
 
+// ─── 5. Weather visibility factor ─────────────────────────────────────────────
+
+console.log('\n=== 5. Weather: visibility factor ===');
+{
+  // Mirrors the formula in weather.js update():
+  //   visibilityFactor = clamp(0.15, (fogEnd - fogStart) / 200, 1.0)
+  // Noon fogEnd=290 is the reference maximum sight distance.
+  function calcVis(fogStart, fogEnd) {
+    return Math.max(0.15, Math.min(1.0, fogEnd / 290));
+  }
+
+  const PRESETS = {
+    noon:    { fogStart:180, fogEnd:290 },
+    dusk:    { fogStart:100, fogEnd:220 },
+    rain:    { fogStart:70,  fogEnd:180 },
+    fog:     { fogStart:25,  fogEnd:110 },
+    rainFog: { fogStart:20,  fogEnd:85  },
+    duskFog: { fogStart:40,  fogEnd:130 },
+  };
+
+  // Noon is clearest → highest visibility among all presets
+  const noonVis = calcVis(PRESETS.noon.fogStart, PRESETS.noon.fogEnd);
+  const allVis  = Object.values(PRESETS).map(p => calcVis(p.fogStart, p.fogEnd));
+  assert(noonVis === Math.max(...allVis),
+    `Noon: visibility=${noonVis.toFixed(3)} is max among all presets`);
+
+  // Dense fog should be below 0.5
+  const fogVis = calcVis(PRESETS.fog.fogStart, PRESETS.fog.fogEnd);
+  assert(fogVis < 0.5, `Fog: visibility=${fogVis.toFixed(3)} < 0.5`);
+
+  // Heavy rain+fog should be at or near the floor (0.15)
+  const rfVis = calcVis(PRESETS.rainFog.fogStart, PRESETS.rainFog.fogEnd);
+  assert(rfVis <= 0.40, `RainFog: visibility=${rfVis.toFixed(3)} <= 0.40`);
+
+  // Always >= floor
+  for (const [name, p] of Object.entries(PRESETS)) {
+    const v = calcVis(p.fogStart, p.fogEnd);
+    assert(v >= 0.15 && v <= 1.0, `${name}: visibility in [0.15, 1.0] (${v.toFixed(3)})`);
+  }
+
+  // Minimap enemy range shrinks with fog
+  const engageRange = CONFIG.ENGAGE_RANGE;
+  const clearRange  = engageRange * 0.9 * calcVis(PRESETS.noon.fogStart,    PRESETS.noon.fogEnd);
+  const fogRange    = engageRange * 0.9 * calcVis(PRESETS.rainFog.fogStart, PRESETS.rainFog.fogEnd);
+  assert(clearRange > fogRange, `Minimap enemy range: clear(${clearRange.toFixed(1)}) > fog(${fogRange.toFixed(1)})`);
+
+  // Lerp helper (used in transition)
+  function lerp(a, b, t) { return a + (b - a) * t; }
+  assertClose(lerp(0, 1, 0),   0, 'lerp t=0 → from', 1e-9);
+  assertClose(lerp(0, 1, 1),   1, 'lerp t=1 → to', 1e-9);
+  assertClose(lerp(0, 1, 0.5), 0.5, 'lerp t=0.5 → midpoint', 1e-9);
+
+  // Rain emitRate lerps from 0 to target during transition
+  const rFrom = 0;       // dry preset
+  const rTo   = 2500;    // rain preset
+  assertClose(lerp(rFrom, rTo, 0.0),  0,    'Rain rate at t=0: 0', 1e-9);
+  assertClose(lerp(rFrom, rTo, 0.5),  1250, 'Rain rate at t=0.5: 1250', 1e-9);
+  assertClose(lerp(rFrom, rTo, 1.0),  2500, 'Rain rate at t=1.0: 2500', 1e-9);
+}
+
 // ─── Summary ──────────────────────────────────────────────────────────────────
 
 console.log(`\n${'─'.repeat(50)}`);

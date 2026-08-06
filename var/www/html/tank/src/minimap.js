@@ -95,7 +95,8 @@ const Minimap = (() => {
         const dist = Math.sqrt(
           (tank.root.position.x - cx) ** 2 + (tank.root.position.z - cz) ** 2
         );
-        if (dist < CONFIG.ENGAGE_RANGE * 0.9) {
+        const visRange = CONFIG.ENGAGE_RANGE * 0.9 * Weather.getVisibilityFactor();
+        if (dist < visRange) {
           _ctx.fillStyle = '#ff4444';
           _ctx.beginPath();
           _ctx.arc(mp.x, mp.y, 4, 0, Math.PI * 2);

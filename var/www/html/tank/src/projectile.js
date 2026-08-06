@@ -213,20 +213,34 @@ const Projectiles = (() => {
   }
 
   function _createTrail(mesh, scene) {
-    return _burst(mesh, scene, {
-      capacity: 80,
-      color1: new BABYLON.Color4(0.85, 0.75, 0.65, 0.7),
-      color2: new BABYLON.Color4(0.55, 0.52, 0.5, 0.5),
-      colorDead: new BABYLON.Color4(0, 0, 0, 0),
-      minSize: 0.25, maxSize: 0.65,
-      minLife: 0.3, maxLife: 0.9,
-      emitRate: 55,
-      blend: BABYLON.ParticleSystem.BLENDMODE_STANDARD,
-      gravity: new BABYLON.Vector3(0, 0.8, 0),
-      dir1: new BABYLON.Vector3(-0.3, 0.2, -0.3),
-      dir2: new BABYLON.Vector3(0.3, 1.2, 0.3),
-      minPower: 0.1, maxPower: 0.4,
-    });
+    // Ribbon streak that traces the exact flight path of the shell
+    const streak = new BABYLON.TrailMesh('shellTrail', mesh, scene, 0.22, 40, true);
+    const smat = new BABYLON.StandardMaterial('shellTrailMat', scene);
+    smat.emissiveColor = new BABYLON.Color3(1.0, 0.55, 0.08);
+    smat.disableLighting = true;
+    smat.backFaceCulling = false;
+    smat.alpha = 0.88;
+    streak.material = smat;
+
+    // Fire glow particles tight around the shell body
+    const ps = new BABYLON.ParticleSystem('shellFirePS', 60, scene);
+    ps.particleTexture = _getParticleTex(scene);
+    ps.emitter = mesh;
+    ps.color1    = new BABYLON.Color4(1.0, 0.95, 0.35, 1.0);
+    ps.color2    = new BABYLON.Color4(1.0, 0.42, 0.04, 0.85);
+    ps.colorDead = new BABYLON.Color4(0.45, 0.08, 0, 0);
+    ps.minSize = 0.10; ps.maxSize = 0.30;
+    ps.minLifeTime = 0.04; ps.maxLifeTime = 0.13;
+    ps.emitRate = 90;
+    ps.blendMode = BABYLON.ParticleSystem.BLENDMODE_ONEONE;
+    ps.gravity = BABYLON.Vector3.Zero();
+    ps.direction1 = new BABYLON.Vector3(-0.12, -0.12, -0.12);
+    ps.direction2 = new BABYLON.Vector3( 0.12,  0.12,  0.12);
+    ps.minEmitPower = 0.05; ps.maxEmitPower = 0.15;
+    ps.updateSpeed = 0.01;
+    ps.start();
+
+    return { streak, ps };
   }
 
   function fire(options) {
@@ -277,7 +291,7 @@ const Projectiles = (() => {
 
       s.age += dt;
       if (s.age > 8) {
-        if (s.trail) { s.trail.stop(); s.trail.disposeOnStop = true; }
+        if (s.trail) { s.trail.ps.stop(); s.trail.ps.disposeOnStop = true; s.trail.streak.dispose(); }
         s.mesh.dispose();
         _shells.splice(i, 1);
         continue;
@@ -339,9 +353,9 @@ const Projectiles = (() => {
     shell.alive = false;
 
     if (shell.trail) {
-      shell.trail.emitter = pos;
-      shell.trail.stop();
-      shell.trail.disposeOnStop = true;
+      shell.trail.ps.stop();
+      shell.trail.ps.disposeOnStop = true;
+      shell.trail.streak.dispose();
     }
 
     shell.mesh.dispose();
