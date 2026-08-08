@@ -8,4 +8,3 @@ chat-artifacts
 deploy-react-to-lightsail.skill
 ytdl/workdir/youtube_download.log
 ytdl/workdir/
-var/.DS_Store
