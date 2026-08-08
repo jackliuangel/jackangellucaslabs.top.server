@@ -7,22 +7,29 @@ URL="$1"
 QUALITY="$2"
 SILENT_MODE="$3"
 
-BASE_DIR_LOCAL="/Users/jackliu/Documents/github/jackangellucaslabs.top.server/ytdl/workdir"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BASE_DIR_LOCAL="$SCRIPT_DIR/workdir"
 BASE_DIR_SERVER="/tmp/video_download"
 BASE_DIR=$BASE_DIR_LOCAL
 
 BASE_LOG_DIR_SERVER="/tmp/video_download"
-BASE_LOG_DIR_LOCAL="/Users/jackliu/Documents/github/jackangellucaslabs.top.server/ytdl/workdir"
+BASE_LOG_DIR_LOCAL="$BASE_DIR_LOCAL"
 BASE_LOG_DIR=$BASE_LOG_DIR_LOCAL
 
-YTDL_COOKIES_DIR_LOCAL="/Users/jackliu/Documents/github/jackangellucaslabs.top.server/ytdl"
+YTDL_COOKIES_DIR_LOCAL="$SCRIPT_DIR"
 YTDL_COOKIES_DIR_SERVER="/home/ubuntu/ytdl"
 YTDL_COOKIES_DIR=$YTDL_COOKIES_DIR_LOCAL
 
 DOWNLOAD_DIR_SERVER="$BASE_DIR/congliulyc@gmail.com"
 # DOWNLOAD_DIR_LOCAL="$BASE_DIR/video_download"
-DOWNLOAD_DIR_LOCAL="/Users/jackliu/Library/Mobile Documents/com~apple~CloudDocs/Downloads"
+DOWNLOAD_DIR_LOCAL="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Downloads"
+if [ ! -d "$DOWNLOAD_DIR_LOCAL" ]; then
+    DOWNLOAD_DIR_LOCAL="$HOME/Downloads"
+fi
 DOWNLOAD_DIR=$DOWNLOAD_DIR_LOCAL
+
+PYTHON_CMD="$(command -v python 2>/dev/null || command -v python3 2>/dev/null || command -v python3.10 2>/dev/null || command -v python3.11 2>/dev/null || echo python)"
+YTDLP_CMD=()
 
 # Generate timestamp for filename
 TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
@@ -151,20 +158,30 @@ setup_platform_config() {
 check_prerequisites() {
     local platform="$1"
     
-    # Check if yt-dlp is installed
-    YTDLP_PATH="$HOME/.local/bin/yt-dlp"
-    if [ ! -f "$YTDLP_PATH" ]; then
-        # Try system installation
-        if command -v yt-dlp >/dev/null 2>&1; then
-            YTDLP_PATH=$(which yt-dlp)
-            log "Using system yt-dlp at: $YTDLP_PATH"
-        else
-            log "ERROR: yt-dlp not found"
-            echo "ERROR: yt-dlp not found. Please install it first:"
-            echo "pip install --user yt-dlp"
-            exit 1
-        fi
+    # Check if yt-dlp is installed (Homebrew yt-dlp takes priority)
+    local system_yt_dlp
+    system_yt_dlp="$(command -v yt-dlp 2>/dev/null || true)"
+    if [ -x "/opt/homebrew/bin/yt-dlp" ]; then
+        YTDLP_CMD=("/opt/homebrew/bin/yt-dlp")
+    elif [ -n "$system_yt_dlp" ] && [ -x "$system_yt_dlp" ] && [[ "$system_yt_dlp" != "$HOME/Library/Python/3.9/bin/yt-dlp" ]]; then
+        YTDLP_CMD=("$system_yt_dlp")
+    elif [ -x "$HOME/.local/bin/yt-dlp" ]; then
+        YTDLP_CMD=("$HOME/.local/bin/yt-dlp")
+    elif [ -x "$HOME/Library/Python/3.9/bin/yt-dlp" ]; then
+        YTDLP_CMD=("$HOME/Library/Python/3.9/bin/yt-dlp")
+    elif command -v "$PYTHON_CMD" >/dev/null 2>&1 && "$PYTHON_CMD" -m yt_dlp --version >/dev/null 2>&1; then
+        YTDLP_CMD=("$PYTHON_CMD" -m yt_dlp)
     fi
+
+    if [ ${#YTDLP_CMD[@]} -eq 0 ]; then
+        log "ERROR: yt-dlp not found"
+        echo "ERROR: yt-dlp not found. Please install it first:"
+        echo "$PYTHON_CMD -m pip install --user yt-dlp"
+        exit 1
+    fi
+
+    YTDLP_PATH="${YTDLP_CMD[*]}"
+    log "Using yt-dlp at: $YTDLP_PATH"
     
     # Check cookies file based on platform
     if [ ! -f "$COOKIES_FILE" ]; then
@@ -202,7 +219,7 @@ get_po_token_args() {
         log "Attempting to generate PO token using $token_script..."
         # Run python script and capture stdout. Stderr goes to log.
         local args
-        args=$(python3 "$token_script" 2>>"$LOG_FILE")
+        args=$("$PYTHON_CMD" "$token_script" 2>>"$LOG_FILE")
         
         if [ $? -eq 0 ] && [ -n "$args" ]; then
             log "PO Token generated successfully."
@@ -276,8 +293,6 @@ download_youtube() {
     "$YTDLP_PATH" \
         ${po_token_flag:+"$po_token_flag"} ${po_token_val:+"$po_token_val"} \
         --cookies-from-browser chrome \
-        --js-runtimes node \
-        --remote-components ejs:github \
         -f "$FORMAT_SELECTOR" \
         --write-sub \
         --write-auto-sub \
@@ -306,15 +321,10 @@ download_youtube() {
         --mark-watched \
         -o "$DOWNLOAD_DIR/%(title).120B_$(get_quality_label "$QUALITY")_${TIMESTAMP}.%(ext)s" \
 	"$URL" >> "$LOG_FILE" 2>&1
+    local ret=$?
+    log "yt-dlp exited with code: $ret"
     log "=== YOUTUBE DOWNLOAD DONE" 
-
-}
-
-# Function to download Bilibili video
-download_bilibili() {
-    log "=== BILIBILI DOWNLOAD STARTED ==="
-    log "URL: $URL"
-    log "Quality: ${QUALITY:-best} ($(get_quality_label "$QUALITY"))"
+    return $ret
     log "Format selector: $FORMAT_SELECTOR"
     
     # Determine progress and output options based on silent mode
