@@ -458,12 +458,52 @@ process_download_result() {
             log "Video size: $FILE_SIZE"
             log "Video path: $FILE_PATH"
             
-            # Overwrite Title metadata with the video URL using exiftool if available
+            # Save the original source URL into the file metadata using exiftool if available
+            # - XMP:Description / XMP:Identifier / XMP:WebStatement: store the original URL in standard XMP fields
+            # - Title: left untouched so the video's real title is preserved
             if command -v exiftool >/dev/null 2>&1; then
-                log "Retagging title metadata with URL via exiftool..."
-                exiftool -overwrite_original -Title="$URL" "$FILE_PATH" >> "$LOG_FILE" 2>&1 && log "exiftool retagging succeeded"
+                log "Saving original URL to metadata via exiftool..."
+                exiftool -overwrite_original \
+                    -XMP:Description="$URL" \
+                    -XMP:Identifier="$URL" \
+                    -XMP:WebStatement="$URL" \
+                    "$FILE_PATH" >> "$LOG_FILE" 2>&1 && log "exiftool metadata update succeeded"
             else
                 log "exiftool not available; skipping metadata overwrite"
+            fi
+
+            # Save the URL into Finder-visible metadata (Spotlight extended attributes)
+            # - kMDItemWhereFroms: shows as "Where from / 來自" in Finder Get Info (clickable URL)
+            # - kMDItemFinderComment: shows as "Comments / 備註" in Finder Get Info
+            # Both are binary plists written via python3 + plistlib, then mdimport refreshes
+            # the Spotlight index so Finder displays them immediately.
+            if command -v python3 >/dev/null 2>&1; then
+                log "Saving original URL to Finder-visible metadata..."
+                python3 - "$FILE_PATH" "$URL" <<'PYEOF' >> "$LOG_FILE" 2>&1 && log "Finder metadata update succeeded"
+import plistlib
+import subprocess
+import sys
+
+file_path = sys.argv[1]
+url = sys.argv[2]
+
+# kMDItemWhereFroms is an array of strings (same as Safari/Chrome downloads)
+where_froms = plistlib.dumps([url], fmt=plistlib.FMT_BINARY)
+subprocess.run(
+    ["xattr", "-wx", "com.apple.metadata:kMDItemWhereFroms", where_froms.hex(), file_path],
+    check=True,
+)
+
+# kMDItemFinderComment is a single string
+comment = plistlib.dumps(url, fmt=plistlib.FMT_BINARY)
+subprocess.run(
+    ["xattr", "-wx", "com.apple.metadata:kMDItemFinderComment", comment.hex(), file_path],
+    check=True,
+)
+PYEOF
+                mdimport "$FILE_PATH" >> "$LOG_FILE" 2>&1
+            else
+                log "python3 not available; skipping Finder metadata"
             fi
             
             # Check for subtitles
