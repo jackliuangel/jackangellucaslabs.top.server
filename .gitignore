@@ -1,6 +1,7 @@
 ytdl/cookies-youtube.txt
 ytdl/cookies-bilibili.txt
 
+.vscode/
 
 .DS_Store
 
