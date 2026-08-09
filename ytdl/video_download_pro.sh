@@ -311,7 +311,8 @@ download_youtube() {
     # Execute download
     "$YTDLP_PATH" \
         ${po_token_flag:+"$po_token_flag"} ${po_token_val:+"$po_token_val"} \
-        --cookies-from-browser chrome \
+        --cookies "$COOKIES_FILE" \
+        --remote-components ejs:github \
         -f "$FORMAT_SELECTOR" \
         --write-sub \
         --write-auto-sub \
