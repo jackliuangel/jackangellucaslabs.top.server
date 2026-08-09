@@ -6,19 +6,34 @@
 URL="$1"
 QUALITY="$2"
 SILENT_MODE="$3"
+LOCAL_MODE="$4"  # Optional: "local" or "server" to force local or server paths, default is server
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR_LOCAL="$SCRIPT_DIR/workdir"
 BASE_DIR_SERVER="/tmp/video_download"
-BASE_DIR=$BASE_DIR_LOCAL
+if [ "$LOCAL_MODE" = "local" ]; then
+    BASE_DIR=$BASE_DIR_LOCAL
+else
+    BASE_DIR=$BASE_DIR_SERVER
+fi
 
 BASE_LOG_DIR_SERVER="/tmp/video_download"
 BASE_LOG_DIR_LOCAL="$BASE_DIR_LOCAL"
-BASE_LOG_DIR=$BASE_LOG_DIR_LOCAL
+if [ "$LOCAL_MODE" = "local" ]; then
+    BASE_LOG_DIR=$BASE_LOG_DIR_LOCAL
+else
+    BASE_LOG_DIR=$BASE_LOG_DIR_SERVER
+fi
+
 
 YTDL_COOKIES_DIR_LOCAL="$SCRIPT_DIR"
 YTDL_COOKIES_DIR_SERVER="/home/ubuntu/ytdl"
-YTDL_COOKIES_DIR=$YTDL_COOKIES_DIR_LOCAL
+if [ "$LOCAL_MODE" = "local" ]; then
+    YTDL_COOKIES_DIR=$YTDL_COOKIES_DIR_LOCAL
+else
+    YTDL_COOKIES_DIR=$YTDL_COOKIES_DIR_SERVER
+fi
+
 
 DOWNLOAD_DIR_SERVER="$BASE_DIR/congliulyc@gmail.com"
 # DOWNLOAD_DIR_LOCAL="$BASE_DIR/video_download"
@@ -26,7 +41,11 @@ DOWNLOAD_DIR_LOCAL="$HOME/Library/Mobile Documents/com~apple~CloudDocs/Downloads
 if [ ! -d "$DOWNLOAD_DIR_LOCAL" ]; then
     DOWNLOAD_DIR_LOCAL="$HOME/Downloads"
 fi
-DOWNLOAD_DIR=$DOWNLOAD_DIR_LOCAL
+if [ "$LOCAL_MODE" = "local" ]; then
+    DOWNLOAD_DIR=$DOWNLOAD_DIR_LOCAL
+else
+    DOWNLOAD_DIR=$DOWNLOAD_DIR_SERVER
+fi
 
 PYTHON_CMD="$(command -v python 2>/dev/null || command -v python3 2>/dev/null || command -v python3.10 2>/dev/null || command -v python3.11 2>/dev/null || echo python)"
 YTDLP_CMD=()
@@ -631,15 +650,10 @@ main() {
     # Clean and extract valid URL
     ORIGINAL_URL="$URL"
     URL=$(clean_url "$URL")
-    
-    # Log URL cleaning if changed
-    if [ "$ORIGINAL_URL" != "$URL" ]; then
-        log "🧹 Cleaned URL: $ORIGINAL_URL -> $URL"
-    fi
-    
+
     # Detect platform from URL
     PLATFORM=$(detect_platform "$URL")
-    
+
     if [ "$PLATFORM" = "unknown" ]; then
         echo "ERROR: Unsupported platform. Please provide a YouTube or Bilibili URL."
         echo "Supported platforms:"
@@ -647,10 +661,14 @@ main() {
         echo "  - Bilibili: URLs containing 'bilibili.com' or 'b23.tv'"
         exit 1
     fi
-    
-    
-    # Setup platform-specific configurations
+
+    # Setup platform-specific configurations (must be before any log() call)
     setup_platform_config "$PLATFORM"
+
+    # Log URL cleaning if changed
+    if [ "$ORIGINAL_URL" != "$URL" ]; then
+        log "🧹 Cleaned URL: $ORIGINAL_URL -> $URL"
+    fi
     
     # Force silent mode for Bilibili if not explicitly set
     if [ "$PLATFORM" = "bilibili" ] && [ "$SILENT_MODE" != "silent" ] && [ -z "$SILENT_MODE" ]; then
