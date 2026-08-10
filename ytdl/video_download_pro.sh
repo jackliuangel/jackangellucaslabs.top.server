@@ -58,6 +58,22 @@ log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
 }
 
+# Function to upload a downloaded file to iCloud Drive via the companion script
+upload_to_icloud() {
+    local file="$1"
+    local icloud_script="$SCRIPT_DIR/icloud_upload.sh"
+    if [ ! -x "$icloud_script" ]; then
+        log "iCloud upload skipped: $icloud_script not found"
+        return 0
+    fi
+    log "Uploading to iCloud Drive: $file"
+    if "$icloud_script" upload "$file" >> "$LOG_FILE" 2>&1; then
+        log "iCloud upload succeeded"
+    else
+        log "iCloud upload FAILED (download result unaffected); run '$icloud_script login' to refresh the session"
+    fi
+}
+
 # Function to get quality label for filename
 get_quality_label() {
     local quality="$1"
@@ -548,6 +564,9 @@ PYEOF
             log "Title: $VIDEO_TITLE"
             log "DOWNLOAD HTTP URL: $DOWNLOAD_HTTP_URL"
             # log "SMB Path: //47.128.3.198/YoutubeDownload/$FILE_NAME"
+
+            # Upload to iCloud Drive
+            upload_to_icloud "$DOWNLOADED_VIDEO"
             
             # Generate platform-specific JSON output
             if [ "$platform" = "bilibili" ]; then
@@ -579,6 +598,9 @@ PYEOF
                 log "Video path: $FILE_PATH"
                 
                 DOWNLOAD_HTTP_URL="https://jackangellucaslabs.top/files/$FILE_NAME"
+
+                # Upload to iCloud Drive
+                upload_to_icloud "$DOWNLOADED_VIDEO"
                 
                 if [ "$platform" = "bilibili" ]; then
                     echo "{\"title\": \"$VIDEO_TITLE\", \"uploader\": \"$VIDEO_UPLOADER\", \"download_link\": \"$DOWNLOAD_HTTP_URL\", \"video_source_url\": \"$URL\", \"platform\": \"bilibili\"}"
