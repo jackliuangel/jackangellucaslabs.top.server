@@ -65,7 +65,7 @@ class TankAI {
   }
 
   update(dt, playerTank, allTanks) {
-    if (!this.tank.alive) return;
+    if (!this.tank.alive || this.tank.frozen) return; // 被彩蛋秘技冻结的坦克不参与 AI
 
     const input = { throttle: 0, steer: 0, turretSteer: 0, elevation: this.tank.barrelElevation, shoot: false };
 

@@ -23,6 +23,9 @@ class Tank {
     this.reloadTimer = 0;
     this.canShoot = true;
 
+    // 被彩蛋秘技冻结（无法移动/瞄准/开火），用于保证「按下 fire 即可命中」
+    this.frozen = false;
+
     // Build mesh
     this._build(options.position || BABYLON.Vector3.Zero());
   }
@@ -362,6 +365,7 @@ class Tank {
 
   update(dt, input) {
     if (!this.alive) return;
+    if (this.frozen) return; // 冻结：整个状态机停摆
 
     // Inertia - speed
     const accel = input.throttle > 0 ? CONFIG.TANK_ACCEL : CONFIG.TANK_BRAKE;
@@ -479,7 +483,7 @@ class Tank {
   }
 
   shoot() {
-    if (!this.canShoot || !this.alive) return null;
+    if (!this.canShoot || !this.alive || this.frozen) return null;
     this.canShoot = false;
     this.reloadTimer = CONFIG.RELOAD_TIME;
     Audio.playShoot();

@@ -10,11 +10,22 @@ const Controls = (() => {
 
   const _keys = {};
 
+  // 底盘输入钩子：WASD 或左摇杆移动时回调（彩蛋秘技用）
+  let _hullInputHook = null;
+
+  function setHullInputHook(fn) { _hullInputHook = fn; }
+
+  // 外部（彩蛋秘技）直接设定瞄准距离，让射程 UI 与真实弹道一致
+  function setTargetDist(d) { _state.targetDist = d; _updateRangeDisplay(); }
+
   function init() {
     // Keyboard
     window.addEventListener('keydown', e => {
       _keys[e.code] = true;
       if (e.code === 'Space') { _state.shoot = true; e.preventDefault(); }
+      if ((e.code === 'KeyW' || e.code === 'KeyA' || e.code === 'KeyS' || e.code === 'KeyD') && !e.repeat) {
+        if (_hullInputHook) _hullInputHook();
+      }
     });
     window.addEventListener('keyup', e => {
       _keys[e.code] = false;
@@ -44,6 +55,7 @@ const Controls = (() => {
       const force = Math.min(data.force, 1);
       _state.throttle = Math.sin(angle) * force;
       _state.steer = Math.cos(angle) * force;
+      if (_hullInputHook && force > 0.1) _hullInputHook();
     });
     leftJoy.on('end', () => {
       _state.throttle = 0;
@@ -140,5 +152,5 @@ const Controls = (() => {
     return { throttle, steer, turretSteer, elevation, targetDist: _state.targetDist, shoot: shootNow };
   }
 
-  return { init, getInput };
+  return { init, getInput, setHullInputHook, setTargetDist };
 })();

@@ -164,5 +164,14 @@ const Audio = (() => {
     setTimeout(() => _burst(1000, 0.06, 'square', 0.15), 80);
   }
 
-  return { init, resume, setEngineSpeed, playShoot, playExplosion, playMetalHit, playReload };
+  // 童年秘技提示音：清脆的 "ding"（钟铃般的高音 + 泛音，快速衰减）
+  function playDing() {
+    if (!enabled) return;
+    resume(); // 键盘输入属于用户手势，确保 AudioContext 已运行
+    _burst(1567.98, 0.9, 'sine', 0.32);  // G6 主音
+    _burst(2093.00, 0.7, 'sine', 0.16);  // C7 泛音
+    _burst(2637.02, 0.5, 'sine', 0.08);  // E7 高泛音
+  }
+
+  return { init, resume, setEngineSpeed, playShoot, playExplosion, playMetalHit, playReload, playDing };
 })();

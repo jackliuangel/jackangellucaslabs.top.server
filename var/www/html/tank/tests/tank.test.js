@@ -416,6 +416,93 @@ console.log('\n=== 5. Weather: visibility factor ===');
   assertClose(lerp(rFrom, rTo, 1.0),  2500, 'Rain rate at t=1.0: 2500', 1e-9);
 }
 
+// ─── 6. Konami cheat (WWSSADADAB) ────────────────────────────────────────────
+// Mirrors the sequence matcher + teleport radius logic in src/cheat.js.
+
+console.log('\n=== 6. Cheat code: WWSSADADAB sequence matcher ===');
+{
+  const CODE = ['KeyW','KeyW','KeyS','KeyS','KeyA','KeyD','KeyA','KeyD','KeyA','KeyB'];
+  const CHEAT_STR = 'wwssadadab';
+
+  // The 10 chars must map to exactly the 10 physical keys above (QWERTY)
+  {
+    const chars = CHEAT_STR.split('');
+    const mapped = chars.map(c => 'Key' + c.toUpperCase());
+    assert(mapped.length === CODE.length, 'wwssadadab is 10 keystrokes');
+    assert(mapped.every((k, i) => k === CODE[i]),
+      'wwssadadab → KeyW,KeyW,KeyS,KeyS,KeyA,KeyD,KeyA,KeyD,KeyA,KeyB');
+  }
+
+  // Matcher: keeps only a suffix that is a prefix of CODE; dings when full
+  function makeMatcher() {
+    let buf = [];
+    function isPrefix(arr) {
+      for (let i = 0; i < arr.length; i++) if (arr[i] !== CODE[i]) return false;
+      return true;
+    }
+    return {
+      press(code) {
+        buf.push(code);
+        while (buf.length > 0 && !isPrefix(buf)) buf.shift();
+        if (buf.length === CODE.length) { buf = []; return true; }
+        return false;
+      }
+    };
+  }
+
+  // Entering the exact code → exactly one ding
+  {
+    const m = makeMatcher();
+    let dings = 0;
+    for (const k of CODE) if (m.press(k)) dings++;
+    assert(dings === 1, 'Full WWSSADADAB → ding exactly once');
+  }
+
+  // A wrong key resets the buffer; re-entering the code still dings
+  {
+    const m = makeMatcher();
+    for (const k of CODE.slice(0, 8)) m.press(k);
+    m.press('KeyX'); // breaks the sequence
+    let dings = 0;
+    for (const k of CODE) if (m.press(k)) dings++;
+    assert(dings === 1, 'After a wrong key, re-entering the full code still dings');
+  }
+
+  // Partial prefix does NOT ding
+  {
+    const m = makeMatcher();
+    let dings = 0;
+    for (const k of CODE.slice(0, 9)) if (m.press(k)) dings++;
+    assert(dings === 0, 'WWSSADADA (9 keys, no final B) → no ding');
+  }
+
+  // Teleport spot: always within [MIN_RADIUS, 90]m of the target
+  {
+    const MIN_RADIUS = 25, MAX_RADIUS = 90;
+    const tx = 0, tz = 65;
+    let allInRange = true;
+    for (let i = 0; i < 500; i++) {
+      const angle = Math.random() * Math.PI * 2;
+      const radius = MIN_RADIUS + Math.random() * (MAX_RADIUS - MIN_RADIUS);
+      const x = tx + Math.sin(angle) * radius;
+      const z = tz + Math.cos(angle) * radius;
+      const d = Math.hypot(x - tx, z - tz);
+      if (d < MIN_RADIUS - 1e-6 || d > MAX_RADIUS + 1e-6) { allInRange = false; break; }
+    }
+    assert(allInRange, 'Random teleport spot always within [25m, 90m] of the first enemy');
+  }
+
+  // Ballistic elevation: the analytic flat-ground range matches the target distance
+  {
+    const v = 55, g = 20;
+    const dist = 90;
+    const elev = 0.5 * Math.asin((g * dist) / (v * v));
+    const range = (v * v * Math.sin(2 * elev)) / g;
+    assertClose(range, dist, 'Elevation for 90m lands at 90m on flat ground', 0.5);
+    assert(elev > 0.05 && elev < 0.6, `90m elevation ${elev.toFixed(3)} within barrel clamp [0.05, 0.6]`);
+  }
+}
+
 // ─── Summary ──────────────────────────────────────────────────────────────────
 
 console.log(`\n${'─'.repeat(50)}`);

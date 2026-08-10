@@ -92,6 +92,10 @@
     }
 
     const allTanks = [playerTank, ...allyTanks, ...enemyTanks];
+
+    // 童年彩蛋：↑↑↓↓←→←→AB (WWSSADADAB)
+    Cheat.init(scene, playerTank, enemyTanks, allTanks);
+
     const allyAIs = allyTanks.map(t => new TankAI(t, 'ally'));
     const enemyAIs = enemyTanks.map(t => new TankAI(t, 'enemy'));
 
@@ -113,6 +117,9 @@
       const dt = engine.getDeltaTime() / 1000;
 
       const input = Controls.getInput(playerTank);
+
+      // 彩蛋秘技：永久锁定（在开火前更新，保证瞄准是最新状态）
+      Cheat.update(playerTank);
 
       if (input.shoot) {
         const shotData = playerTank.shoot();
