@@ -8,6 +8,9 @@ QUALITY="$2"
 SILENT_MODE="$3"
 LOCAL_MODE="$4"  # Optional: "local" or "server" to force local or server paths, default is server
 
+# 超过此字节数的文件跳过 iCloud 上传（70 MB = 70 * 1024 * 1024）
+ICLOUD_MAX_SIZE_BYTES=73400320
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR_LOCAL="$SCRIPT_DIR/workdir"
 BASE_DIR_SERVER="/tmp/video_download"
@@ -64,6 +67,19 @@ upload_to_icloud() {
     local icloud_script="$SCRIPT_DIR/icloud_upload.sh"
     if [ ! -x "$icloud_script" ]; then
         log "iCloud upload skipped: $icloud_script not found"
+        return 0
+    fi
+    if [ ! -f "$file" ]; then
+        log "ERROR: iCloud upload skipped: file not found: $file"
+        return 0
+    fi
+    # 文件大于 70MB 时跳过 iCloud 上传（避免大文件上传超时/失败）
+    local size_bytes
+    size_bytes=$(wc -c < "$file" 2>/dev/null | tr -d ' ')
+    if [ -n "$size_bytes" ] && [ "$size_bytes" -gt "$ICLOUD_MAX_SIZE_BYTES" ]; then
+        local size_human
+        size_human=$(du -h "$file" | cut -f1)
+        log "ERROR: iCloud upload SKIPPED - file too large: ${size_human} (>70MB limit): $file"
         return 0
     fi
     log "Uploading to iCloud Drive: $file"
