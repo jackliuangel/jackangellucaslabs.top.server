@@ -11,6 +11,13 @@ LOCAL_MODE="$4"  # Optional: "local" or "server" to force local or server paths,
 # 超过此字节数的文件跳过 iCloud 上传（70 MB = 70 * 1024 * 1024）
 ICLOUD_MAX_SIZE_BYTES=73400320
 
+# PO token 缓存有效期（秒）：token 短期内有效，复用可减少对 YouTube 的请求与风控风险
+PO_TOKEN_TTL=600
+# 生成 PO token 的超时（秒）：绝不无限阻塞下载流程
+PO_TOKEN_TIMEOUT=30
+# 本脚本测试过的 yt-dlp 版本；安装版本不一致时给出告警（A1 版本钉扎）
+YTDLP_PINNED_VERSION="2026.07.04"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BASE_DIR_LOCAL="$SCRIPT_DIR/workdir"
 BASE_DIR_SERVER="/tmp/video_download"
@@ -59,6 +66,16 @@ TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
 # Function to log messages
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S') - $1" >> "$LOG_FILE"
+}
+
+# 安全转义一个值，用于嵌入 JSON 字符串字面量（B3：JSON 输出转义）
+json_escape() {
+    "$PYTHON_CMD" -c 'import json, sys; print(json.dumps(sys.argv[1], ensure_ascii=False))' "$1" 2>/dev/null
+}
+
+# 对文件名做 URL 百分号编码，保证下载链接在浏览器/curl 中都可用（B4）
+url_encode() {
+    "$PYTHON_CMD" -c 'import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))' "$1" 2>/dev/null
 }
 
 # Function to upload a downloaded file to iCloud Drive via the companion script
@@ -233,6 +250,13 @@ check_prerequisites() {
 
     YTDLP_PATH="${YTDLP_CMD[*]}"
     log "Using yt-dlp at: $YTDLP_PATH"
+
+    # A1: 版本钉扎——安装版本与测试版本不一致时告警，避免 YouTube 变更悄悄破坏下载
+    local installed_ver
+    installed_ver=$("$YTDLP_PATH" --version 2>/dev/null || true)
+    if [ -n "$installed_ver" ] && [ "$installed_ver" != "$YTDLP_PINNED_VERSION" ]; then
+        log "WARNING: yt-dlp version $installed_ver differs from pinned/tested version $YTDLP_PINNED_VERSION; keep the tested version or re-verify the pin"
+    fi
     
     # Check cookies file based on platform
     if [ ! -f "$COOKIES_FILE" ]; then
@@ -260,32 +284,50 @@ check_prerequisites() {
 # Function to get PO token args
 get_po_token_args() {
     local token_script="$YTDL_COOKIES_DIR/get_po_token.py"
-    
+
     if [ ! -f "$token_script" ]; then
         # Try relative path
         token_script="$(dirname "$0")/get_po_token.py"
     fi
 
-    if [ -f "$token_script" ]; then
-        log "Attempting to generate PO token using $token_script..."
-        # Run python script and capture stdout. Stderr goes to log.
-        local args
-        args=$("$PYTHON_CMD" "$token_script" 2>>"$LOG_FILE")
-        
-        if [ $? -eq 0 ] && [ -n "$args" ]; then
-            log "PO Token generated successfully."
-            # The python script returns the value for extractor-args. 
-            # We need to prepend the flag.
-            echo "--extractor-args"
-            echo "$args"
-        else
-            log "WARNING: Failed to generate PO token or script returned empty."
-            return 1
-        fi
-    else
-         log "WARNING: get_po_token.py not found at $token_script"
-         return 1
+    if [ ! -f "$token_script" ]; then
+        log "WARNING: get_po_token.py not found at $token_script"
+        return 1
     fi
+
+    # A1: PO token 缓存——token 短期内有效，复用可减少对 YouTube 的请求与风控风险
+    local cache_file="$BASE_LOG_DIR/po_token_cache"
+    local ttl_min=$(( (PO_TOKEN_TTL + 59) / 60 ))
+    if [ -f "$cache_file" ] && [ -n "$(find "$cache_file" -mmin "-$ttl_min" 2>/dev/null)" ]; then
+        local cached
+        cached=$(cat "$cache_file" 2>/dev/null)
+        if [ -n "$cached" ]; then
+            log "PO token reused from cache: $cache_file"
+            echo "--extractor-args"
+            echo "$cached"
+            return 0
+        fi
+    fi
+
+    log "Attempting to generate PO token using $token_script..."
+    # Run python script and capture stdout. Stderr goes to log. Never block forever.
+    local args
+    args=$(timeout "$PO_TOKEN_TIMEOUT" "$PYTHON_CMD" "$token_script" 2>>"$LOG_FILE")
+    local ret=$?
+
+    if [ $ret -eq 0 ] && [ -n "$args" ]; then
+        mkdir -p "$(dirname "$cache_file")"
+        printf '%s' "$args" > "$cache_file"
+        log "PO token generated successfully (cached to $cache_file)."
+        # The python script returns the value for extractor-args.
+        # We need to prepend the flag.
+        echo "--extractor-args"
+        echo "$args"
+        return 0
+    fi
+
+    log "WARNING: PO token generation failed (exit=$ret) or returned empty; falling back to alternative player clients."
+    return 1
 }
 
 # Function to download YouTube video
@@ -309,11 +351,11 @@ download_youtube() {
         local ret=$?
         if [ $ret -eq 0 ]; then
             log "SUCCESS: Watch history updated"
-            echo "{\"title\": \"$VIDEO_TITLE\", \"status\": \"success\", \"action\": \"history_update\", \"video_source_url\": \"$URL\", \"platform\": \"youtube\"}"
+            echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"status\": \"success\", \"action\": \"history_update\", \"video_source_url\": $(json_escape "$URL"), \"platform\": \"youtube\"}"
             exit 0
         else
             log "ERROR: Failed to update watch history"
-            echo "{\"status\": \"error\", \"message\": \"Failed to update watch history\", \"video_source_url\": \"$URL\", \"platform\": \"youtube\"}"
+            echo "{\"status\": \"error\", \"message\": \"Failed to update watch history\", \"video_source_url\": $(json_escape "$URL"), \"platform\": \"youtube\"}"
             exit 1
         fi
     fi
@@ -323,26 +365,24 @@ download_youtube() {
     log "Quality: ${QUALITY:-best} ($(get_quality_label "$QUALITY"))"
     log "Format selector: $FORMAT_SELECTOR"
     log "download dir: $DOWNLOAD_DIR"    
-    # Get PO Token Args
-    local po_token_flag=""
-    local po_token_val=""
-    
-    # Capture output as array to handle spaces safely if needed, though here it's likely single string
-    # Using read to split the two lines (flag and value)
+    # PO token（缓存或新生成）；失败时降级到替代 player_client（A1）
+    local po_extra_flag="" po_extra_val=""
     {
-        read -r po_token_flag
-        read -r po_token_val
+        read -r po_extra_flag
+        read -r po_extra_val
     } < <(get_po_token_args)
-    
-    if [ -n "$po_token_flag" ] && [ -n "$po_token_val" ]; then
-        log "Using PO Token args: $po_token_val"
+
+    if [ -n "$po_extra_flag" ] && [ -n "$po_extra_val" ]; then
+        log "Using PO Token args: $po_extra_val"
     else
-        log "Proceeding without PO Token args"
+        log "Proceeding without PO Token; using alternative player clients fallback: default,tv,ios,web_embedded"
+        po_extra_flag="--extractor-args"
+        po_extra_val="youtube:player_client=default,tv,ios,web_embedded"
     fi
 
     # Execute download
     "$YTDLP_PATH" \
-        ${po_token_flag:+"$po_token_flag"} ${po_token_val:+"$po_token_val"} \
+        ${po_extra_flag:+"$po_extra_flag"} ${po_extra_val:+"$po_extra_val"} \
         --cookies "$COOKIES_FILE" \
         --remote-components ejs:github \
         -f "$FORMAT_SELECTOR" \
@@ -539,7 +579,7 @@ process_download_result() {
                 log "No separate subtitle files found (may be embedded)"
             fi
             
-            DOWNLOAD_HTTP_URL="https://jackangellucaslabs.top/files/$FILE_NAME"
+            DOWNLOAD_HTTP_URL="https://jackangellucaslabs.top/files/$(url_encode "$FILE_NAME")"
             
             # Return file information
             log "SUCCESS: Download completed"
@@ -555,9 +595,9 @@ process_download_result() {
             
             # Generate platform-specific JSON output
             if [ "$platform" = "bilibili" ]; then
-                echo "{\"title\": \"$VIDEO_TITLE\", \"uploader\": \"$VIDEO_UPLOADER\", \"download_link\": \"$DOWNLOAD_HTTP_URL\", \"video_source_url\": \"$URL\", \"platform\": \"bilibili\"}"
+                echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"uploader\": $(json_escape "$VIDEO_UPLOADER"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"bilibili\"}"
             else
-                echo "{\"title\": \"$VIDEO_TITLE\", \"download_link\": \"$DOWNLOAD_HTTP_URL\", \"video_source_url\": \"$URL\", \"platform\": \"youtube\"}"
+                echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"youtube\"}"
             fi
             exit 0
         else
@@ -582,15 +622,15 @@ process_download_result() {
                 log "Video size: $FILE_SIZE"
                 log "Video path: $FILE_PATH"
                 
-                DOWNLOAD_HTTP_URL="https://jackangellucaslabs.top/files/$FILE_NAME"
+                DOWNLOAD_HTTP_URL="https://jackangellucaslabs.top/files/$(url_encode "$FILE_NAME")"
 
                 # Upload to iCloud Drive
                 upload_to_icloud "$DOWNLOADED_VIDEO"
                 
                 if [ "$platform" = "bilibili" ]; then
-                    echo "{\"title\": \"$VIDEO_TITLE\", \"uploader\": \"$VIDEO_UPLOADER\", \"download_link\": \"$DOWNLOAD_HTTP_URL\", \"video_source_url\": \"$URL\", \"platform\": \"bilibili\"}"
+                    echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"uploader\": $(json_escape "$VIDEO_UPLOADER"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"bilibili\"}"
                 else
-                    echo "{\"title\": \"$VIDEO_TITLE\", \"download_link\": \"$DOWNLOAD_HTTP_URL\", \"video_source_url\": \"$URL\", \"platform\": \"youtube\"}"
+                    echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"youtube\"}"
                 fi
                 exit 0
             else
