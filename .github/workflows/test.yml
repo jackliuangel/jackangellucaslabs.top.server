@@ -1,0 +1,29 @@
+name: tests
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Run test suites
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Tank game tests (var/www/html/tank)
+        run: node var/www/html/tank/tests/tank.test.js
+
+      - name: Video downloader script tests (ytdl)
+        run: bash ytdl/tests/test_video_download_pro.sh
+
+      - name: Shellcheck bash lint
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq shellcheck
+          shellcheck ytdl/video_download_pro.sh

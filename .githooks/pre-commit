@@ -1,0 +1,20 @@
+#!/bin/bash
+# Pre-commit hook: runs all test suites before every commit.
+#
+# Install once per clone with:
+#   git config core.hooksPath .githooks
+# (hooksPath is what makes this file take effect; hooks are not cloned.)
+#
+# A failing test aborts the commit.
+
+set -u
+
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)")"
+
+echo "==> [pre-commit] tank tests"
+node "$ROOT/var/www/html/tank/tests/tank.test.js" || { echo "✗ tank tests failed"; exit 1; }
+
+echo "==> [pre-commit] video downloader script tests"
+bash "$ROOT/ytdl/tests/test_video_download_pro.sh" || { echo "✗ ytdl tests failed"; exit 1; }
+
+echo "==> [pre-commit] all tests passed"
