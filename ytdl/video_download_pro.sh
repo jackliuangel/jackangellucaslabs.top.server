@@ -272,13 +272,13 @@ check_prerequisites() {
             echo "Please export your bilibili cookies and save to: $COOKIES_FILE"
             echo ""
             echo "Continuing without cookies..."
-            COOKIES_OPTION=""
+            COOKIES_OPTION=()
             return 0
         fi
     fi
     
     log "Using cookies file: $COOKIES_FILE"
-    COOKIES_OPTION="--cookies $COOKIES_FILE"
+    COOKIES_OPTION=(--cookies "$COOKIES_FILE")
 }
 
 # Function to get PO token args
@@ -421,25 +421,23 @@ download_youtube() {
     
     # Determine progress and output options based on silent mode
     if [ "$SILENT_MODE" = "progress" ]; then
-        PROGRESS_OPTION="--progress"
         log "Running in interactive mode - showing progress"
         log "📺 开始下载 Bilibili 视频..."
     else
         # Default to silent mode for Bilibili
-        PROGRESS_OPTION="--no-progress"
         log "Running in silent mode - no progress display"
         log "🔇 运行在静默模式 - 查看日志: tail -f $LOG_FILE"
     fi
-    
-    # Build base command
-    YTDLP_CMD="$YTDLP_PATH"
-    if [ -n "$COOKIES_OPTION" ]; then
-        YTDLP_CMD="$YTDLP_CMD $COOKIES_OPTION"
+
+    # Build base command as an array to avoid word-splitting
+    local -a yt_cmd=("$YTDLP_PATH")
+    if [ ${#COOKIES_OPTION[@]} -gt 0 ]; then
+        yt_cmd+=("${COOKIES_OPTION[@]}")
     fi
     
     # Execute download
     if [ "$SILENT_MODE" != "progress" ]; then
-        $YTDLP_CMD \
+        "${yt_cmd[@]}" \
             -f "$FORMAT_SELECTOR" \
             --write-sub \
             --write-auto-sub \
@@ -469,7 +467,7 @@ download_youtube() {
             -o "$DOWNLOAD_DIR/%(title).120B_$(get_quality_label "$QUALITY")_${TIMESTAMP}.%(ext)s" \
             "$URL" >> "$LOG_FILE" 2>&1
     else
-        $YTDLP_CMD \
+        "${yt_cmd[@]}" \
             -f "$FORMAT_SELECTOR" \
             --write-sub \
             --write-auto-sub \
@@ -506,9 +504,10 @@ download_youtube() {
 process_download_result() {
     local platform="$1"
     local exit_code="$2"
-    local quality_label=$(get_quality_label "$QUALITY")
+    local quality_label
+    quality_label=$(get_quality_label "$QUALITY")
     
-    if [ $exit_code -eq 0 ]; then
+    if [ "$exit_code" -eq 0 ]; then
         log "=== DOWNLOAD COMPLETED ==="
         log "SUCCESS: $platform download completed"
         
@@ -519,7 +518,7 @@ process_download_result() {
         
         # List all files in download directory for debugging
         log "All files in download directory:"
-        find "$DOWNLOAD_DIR" -type f -name "*${TIMESTAMP}*" | while read file; do
+        find "$DOWNLOAD_DIR" -type f -name "*${TIMESTAMP}*" | while read -r file; do
             log "Found file: $file"
         done
         
@@ -531,11 +530,11 @@ process_download_result() {
         
         if [ -n "$DOWNLOADED_VIDEO" ] && [ -f "$DOWNLOADED_VIDEO" ]; then
             # Extract video information
-            VIDEO_TITLE=$("$YTDLP_PATH" $COOKIES_OPTION --get-title "$URL" 2>/dev/null)
+            VIDEO_TITLE=$("$YTDLP_PATH" "${COOKIES_OPTION[@]}" --get-title "$URL" 2>/dev/null)
             
             # Get additional info for Bilibili
             if [ "$platform" = "bilibili" ]; then
-                VIDEO_UPLOADER=$("$YTDLP_PATH" $COOKIES_OPTION --get-uploader "$URL" 2>/dev/null)
+                VIDEO_UPLOADER=$("$YTDLP_PATH" "${COOKIES_OPTION[@]}" --get-uploader "$URL" 2>/dev/null)
                 log "Video uploader: $VIDEO_UPLOADER"
             fi
             
@@ -610,9 +609,9 @@ process_download_result() {
             if [ -n "$DOWNLOADED_VIDEO" ] && [ -f "$DOWNLOADED_VIDEO" ]; then
                 log "Found video with broader search: $DOWNLOADED_VIDEO"
                 # Continue with the same processing logic
-                VIDEO_TITLE=$("$YTDLP_PATH" $COOKIES_OPTION --get-title "$URL" 2>/dev/null)
+                VIDEO_TITLE=$("$YTDLP_PATH" "${COOKIES_OPTION[@]}" --get-title "$URL" 2>/dev/null)
                 if [ "$platform" = "bilibili" ]; then
-                    VIDEO_UPLOADER=$("$YTDLP_PATH" $COOKIES_OPTION --get-uploader "$URL" 2>/dev/null)
+                    VIDEO_UPLOADER=$("$YTDLP_PATH" "${COOKIES_OPTION[@]}" --get-uploader "$URL" 2>/dev/null)
                 fi
                 FILE_SIZE=$(du -h "$DOWNLOADED_VIDEO" | cut -f1)
                 FILE_NAME=$(basename "$DOWNLOADED_VIDEO")
@@ -636,7 +635,7 @@ process_download_result() {
             else
                 log "ERROR: Downloaded video file not found even with broader search"
                 log "All files in download directory:"
-                ls -la "$DOWNLOAD_DIR" | while read line; do
+                find "$DOWNLOAD_DIR" -maxdepth 1 -mindepth 1 | while read -r line; do
                     log "$line"
                 done
                 echo "ERROR: Downloaded video file not found"

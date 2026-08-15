@@ -26,6 +26,4 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq shellcheck
-          # -S error: 只拦截 error 级问题。脚本存在预先的 warning/info 级
-          # 告警（SC2034/SC2128 等，位于原有 bilibili 分支），单独跟踪清理
-          shellcheck -S error ytdl/video_download_pro.sh
+          shellcheck ytdl/video_download_pro.sh
