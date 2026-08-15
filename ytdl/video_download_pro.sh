@@ -417,6 +417,12 @@ download_youtube() {
     log "yt-dlp exited with code: $ret"
     log "=== YOUTUBE DOWNLOAD DONE" 
     return $ret
+}
+
+# Function to download Bilibili video
+# NOTE: bilibili 下载逻辑原先被误放进 download_youtube 的 return 之后（死代码），
+# 导致 download_bilibili 从未被定义、bilibili 下载一直失败；此处提取为独立函数。
+download_bilibili() {
     log "Format selector: $FORMAT_SELECTOR"
     
     # Determine progress and output options based on silent mode
