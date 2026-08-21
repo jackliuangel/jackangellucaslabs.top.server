@@ -82,6 +82,7 @@ url_encode() {
 upload_to_icloud() {
     local file="$1"
     local icloud_script="$SCRIPT_DIR/icloud_upload.sh"
+    SAVED_IN_ICLOUD="false"
     if [ ! -x "$icloud_script" ]; then
         log "iCloud upload skipped: $icloud_script not found"
         return 0
@@ -94,6 +95,7 @@ upload_to_icloud() {
     local size_bytes
     size_bytes=$(wc -c < "$file" 2>/dev/null | tr -d ' ')
     if [ -n "$size_bytes" ] && [ "$size_bytes" -gt "$ICLOUD_MAX_SIZE_BYTES" ]; then
+        SAVED_IN_ICLOUD="true"
         local size_human
         size_human=$(du -h "$file" | cut -f1)
         log "ERROR: iCloud upload SKIPPED - file too large: ${size_human} (>70MB limit): $file"
@@ -600,9 +602,9 @@ process_download_result() {
             
             # Generate platform-specific JSON output
             if [ "$platform" = "bilibili" ]; then
-                echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"uploader\": $(json_escape "$VIDEO_UPLOADER"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"bilibili\"}"
+                echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"uploader\": $(json_escape "$VIDEO_UPLOADER"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"bilibili\", \"saved_in_icloud\": $SAVED_IN_ICLOUD}"
             else
-                echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"youtube\"}"
+                echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"youtube\", \"saved_in_icloud\": $SAVED_IN_ICLOUD}"
             fi
             exit 0
         else
@@ -633,9 +635,9 @@ process_download_result() {
                 upload_to_icloud "$DOWNLOADED_VIDEO"
                 
                 if [ "$platform" = "bilibili" ]; then
-                    echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"uploader\": $(json_escape "$VIDEO_UPLOADER"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"bilibili\"}"
+                    echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"uploader\": $(json_escape "$VIDEO_UPLOADER"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"bilibili\", \"saved_in_icloud\": $SAVED_IN_ICLOUD}"
                 else
-                    echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"youtube\"}"
+                    echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"youtube\", \"saved_in_icloud\": $SAVED_IN_ICLOUD}"
                 fi
                 exit 0
             else
