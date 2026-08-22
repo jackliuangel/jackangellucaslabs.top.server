@@ -7,6 +7,7 @@ URL="$1"
 QUALITY="$2"
 SILENT_MODE="$3"
 LOCAL_MODE="$4"  # Optional: "local" or "server" to force local or server paths, default is server
+ASYNC_MODE="$5"  # Optional: "async" to return the 3-field JSON after metadata and download in the background
 
 # 超过此字节数的文件跳过 iCloud 上传（70 MB = 70 * 1024 * 1024）
 ICLOUD_MAX_SIZE_BYTES=73400320
@@ -61,7 +62,7 @@ PYTHON_CMD="$(command -v python 2>/dev/null || command -v python3 2>/dev/null ||
 YTDLP_CMD=()
 
 # Generate timestamp for filename
-TIMESTAMP=$(date '+%Y%m%d_%H%M%S')
+TIMESTAMP="${DOWNLOAD_TS:-$(date '+%Y%m%d_%H%M%S')}"
 
 # Function to log messages
 log() {
@@ -580,13 +581,17 @@ process_download_result() {
                 for sub in $DOWNLOADED_SUBTITLES; do
                     SUB_NAME=$(basename "$sub")
                     SUB_SIZE=$(du -h "$sub" | cut -f1)
+                    # Prepend a UTF-8 BOM so players detect the encoding instead of showing boxes
+                    if [ -f "$sub" ] && [ "$(head -c 3 "$sub")" != "$(printf '\xef\xbb\xbf')" ]; then
+                        printf '\xef\xbb\xbf' | cat - "$sub" > "$sub.tmp" && mv "$sub.tmp" "$sub"
+                    fi
                     log "  - $SUB_NAME ($SUB_SIZE)"
                 done
             else
                 log "No separate subtitle files found (may be embedded)"
             fi
             
-            DOWNLOAD_HTTP_URL="https://jackangellucaslabs.top/files/$(url_encode "$FILE_NAME")"
+            DOWNLOAD_HTTP_URL="https://files.jackangellucaslabs.top/$(url_encode "$FILE_NAME")"
             
             # Return file information
             log "SUCCESS: Download completed"
@@ -600,12 +605,12 @@ process_download_result() {
             # Upload to iCloud Drive
             upload_to_icloud "$DOWNLOADED_VIDEO"
             
-            # Generate platform-specific JSON output
-            if [ "$platform" = "bilibili" ]; then
-                echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"uploader\": $(json_escape "$VIDEO_UPLOADER"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"bilibili\", \"saved_in_icloud\": $SAVED_IN_ICLOUD}"
-            else
-                echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"youtube\", \"saved_in_icloud\": $SAVED_IN_ICLOUD}"
-            fi
+            # Generate platform-independent JSON output (original url, video title, download url)
+            echo "{"
+            echo "  \"video_source_url\": $(json_escape "$URL"),"
+            echo "  \"title\": $(json_escape "$VIDEO_TITLE"),"
+            echo "  \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL")"
+            echo "}"
             exit 0
         else
             log "ERROR: Downloaded video file not found with pattern *_${quality_label}_${TIMESTAMP}.*"
@@ -629,16 +634,17 @@ process_download_result() {
                 log "Video size: $FILE_SIZE"
                 log "Video path: $FILE_PATH"
                 
-                DOWNLOAD_HTTP_URL="https://jackangellucaslabs.top/files/$(url_encode "$FILE_NAME")"
+                DOWNLOAD_HTTP_URL="https://files.jackangellucaslabs.top/$(url_encode "$FILE_NAME")"
 
                 # Upload to iCloud Drive
                 upload_to_icloud "$DOWNLOADED_VIDEO"
                 
-                if [ "$platform" = "bilibili" ]; then
-                    echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"uploader\": $(json_escape "$VIDEO_UPLOADER"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"bilibili\", \"saved_in_icloud\": $SAVED_IN_ICLOUD}"
-                else
-                    echo "{\"title\": $(json_escape "$VIDEO_TITLE"), \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL"), \"video_source_url\": $(json_escape "$URL"), \"platform\": \"youtube\", \"saved_in_icloud\": $SAVED_IN_ICLOUD}"
-                fi
+                # Generate platform-independent JSON output (original url, video title, download url)
+                echo "{"
+                echo "  \"video_source_url\": $(json_escape "$URL"),"
+                echo "  \"title\": $(json_escape "$VIDEO_TITLE"),"
+                echo "  \"download_link\": $(json_escape "$DOWNLOAD_HTTP_URL")"
+                echo "}"
                 exit 0
             else
                 log "ERROR: Downloaded video file not found even with broader search"
@@ -666,6 +672,64 @@ process_download_result() {
 }
 
 # Main function
+# Async flow: resolve metadata, emit the 3-field JSON immediately, then run the real download in the background with the same timestamp.
+async_download_and_exit() {
+    local quality_label
+    quality_label=$(get_quality_label "$QUALITY")
+
+    local po_token_flag="" po_token_val=""
+    {
+        read -r po_token_flag
+        read -r po_token_val
+    } < <(get_po_token_args)
+
+    local out_template="$DOWNLOAD_DIR/%(title).120B_${quality_label}_${TIMESTAMP}.%(ext)s"
+
+    # One metadata pass: raw (pretty) title + output filename (for the extension)
+    local meta_out
+    meta_out=$("$YTDLP_PATH" \
+        ${po_token_flag:+"$po_token_flag"} ${po_token_val:+"$po_token_val"} \
+        --cookies "$COOKIES_FILE" \
+        -f "$FORMAT_SELECTOR" \
+        --simulate \
+        --print "%(title)s" \
+        --print "%(filename)s" \
+        -o "$out_template" \
+        "$URL" 2>>"$LOG_FILE")
+    if [ -z "$meta_out" ]; then
+        echo "ERROR: could not resolve video metadata"
+        exit 1
+    fi
+
+    local raw_title
+    raw_title=$(printf '%s\n' "$meta_out" | sed -n '1p')
+    local file_path
+    file_path=$(printf '%s\n' "$meta_out" | sed -n '2p')
+    local out_ext
+    out_ext=$(basename "$file_path" | grep -oE '\.[a-zA-Z0-9]+$' | head -1)
+
+    # Reproduce the script's --replace-in-metadata title sanitization, then truncate to 120 bytes like yt-dlp's .120B
+    local sanitized
+    sanitized=$(printf '%s' "$raw_title" | perl -CSD -pe 's/\s+$//; s/\s+/_/g; s/[,!，！]+//g; s/[|｜]+//g; s/[;]+//g; s/[?]+//g; s/[.]+//g; s/[#]+//g; s/[<>]+//g; s/[:]+//g; s/["]+//g; s|[/]+||g; s/[\\]+//g; s/[*]+//g; s/[\x00-\x1F]+//g; s/[\x{3001}-\x{303F}\x{FF01}-\x{FF60}\x{FFE0}-\x{FFEE}]+//g' | head -c 120)
+
+    local file_name="${sanitized}_${quality_label}_${TIMESTAMP}${out_ext}"
+
+    local download_http_url
+    download_http_url="https://files.jackangellucaslabs.top/$(url_encode "$file_name")"
+
+    echo "{"
+    echo "  \"video_source_url\": $(json_escape "$URL"),"
+    echo "  \"title\": $(json_escape "$raw_title"),"
+    echo "  \"download_link\": $(json_escape "$download_http_url")"
+    echo "}"
+
+    log "ASYNC: metadata resolved, background download starting for $file_name"
+    DOWNLOAD_TS="$TIMESTAMP" setsid nohup "${BASH_SOURCE[0]}" "$ORIGINAL_URL" "$QUALITY" "$SILENT_MODE" "$LOCAL_MODE" >> "$LOG_FILE" 2>&1 < /dev/null &
+    disown 2>/dev/null || true
+
+    exit 0
+}
+
 main() {
     # Check if parameters are provided
     if [ $# -eq 0 ]; then
@@ -733,6 +797,11 @@ main() {
     
     # Check prerequisites
     check_prerequisites "$PLATFORM"
+
+    # Async mode: return the 3-field JSON after metadata, download in the background
+    if [ "$ASYNC_MODE" = "async" ]; then
+        async_download_and_exit
+    fi
     
     # Download based on platform
     case "$PLATFORM" in
