@@ -27,7 +27,7 @@ while true; do
     log_message "Starting cleanup of files older than ${MAX_AGE_HOURS} hour(s) in $TARGET_DIR"
 
     # Count files before cleanup
-    files_before=$(find "$TARGET_DIR" -type f | wc -l)
+    files_before=$(find "$TARGET_DIR" -mindepth 1 -maxdepth 1 -type f | wc -l)
     log_message "Files before cleanup: $files_before"
 
     # Find and delete files older than specified time
@@ -52,10 +52,10 @@ while true; do
                 fi
             fi
         fi
-    done < <(find "$TARGET_DIR" -type f -print0)
+    done < <(find "$TARGET_DIR" -mindepth 1 -maxdepth 1 -type f -print0)
 
     # Count files after cleanup
-    files_after=$(find "$TARGET_DIR" -type f | wc -l)
+    files_after=$(find "$TARGET_DIR" -mindepth 1 -maxdepth 1 -type f | wc -l)
 
     # Log cleanup results
     log_message "Cleanup completed:"
