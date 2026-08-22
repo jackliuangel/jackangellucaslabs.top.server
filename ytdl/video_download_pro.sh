@@ -3,11 +3,11 @@
 # Save as video-download-pro.sh
 
 # Global Configuration
-URL="$1"
-QUALITY="$2"
-SILENT_MODE="$3"
-LOCAL_MODE="$4"  # Optional: "local" or "server" to force local or server paths, default is server
-ASYNC_MODE="$5"  # Optional: "async" to return the 3-field JSON after metadata and download in the background
+URL="${1:-}"
+QUALITY="${2:-}"
+SILENT_MODE="${3:-}"
+LOCAL_MODE="${4:-}"  # Optional: "local" or "server" to force local or server paths, default is server
+ASYNC_MODE="${5:-}"  # Optional: "async" to return the 3-field JSON after metadata and download in the background
 
 # 超过此字节数的文件跳过 iCloud 上传（70 MB = 70 * 1024 * 1024）
 ICLOUD_MAX_SIZE_BYTES=73400320
@@ -83,7 +83,6 @@ url_encode() {
 upload_to_icloud() {
     local file="$1"
     local icloud_script="$SCRIPT_DIR/icloud_upload.sh"
-    SAVED_IN_ICLOUD="false"
     if [ ! -x "$icloud_script" ]; then
         log "iCloud upload skipped: $icloud_script not found"
         return 0
@@ -96,7 +95,6 @@ upload_to_icloud() {
     local size_bytes
     size_bytes=$(wc -c < "$file" 2>/dev/null | tr -d ' ')
     if [ -n "$size_bytes" ] && [ "$size_bytes" -gt "$ICLOUD_MAX_SIZE_BYTES" ]; then
-        SAVED_IN_ICLOUD="true"
         local size_human
         size_human=$(du -h "$file" | cut -f1)
         log "ERROR: iCloud upload SKIPPED - file too large: ${size_human} (>70MB limit): $file"
@@ -672,6 +670,12 @@ process_download_result() {
 }
 
 # Main function
+# Reproduce yt-dlp's --replace-in-metadata title sanitization, then truncate to 120 bytes (like .120B).
+# Must stay in sync with the --replace-in-metadata list used by download_youtube.
+sanitize_title() {
+    printf '%s' "$1" | perl -CSD -pe 's/\s+$//; s/\s+/_/g; s/[,!，！]+//g; s/[|｜]+//g; s/[;]+//g; s/[?]+//g; s/[.]+//g; s/[#]+//g; s/[<>]+//g; s/[:]+//g; s/["]+//g; s|[/]+||g; s/[\\]+//g; s/[*]+//g; s/[\x00-\x1F]+//g; s/[\x{3001}-\x{303F}\x{FF01}-\x{FF60}\x{FFE0}-\x{FFEE}]+//g' | head -c 120
+}
+
 # Async flow: resolve metadata, emit the 3-field JSON immediately, then run the real download in the background with the same timestamp.
 async_download_and_exit() {
     local quality_label
@@ -710,7 +714,7 @@ async_download_and_exit() {
 
     # Reproduce the script's --replace-in-metadata title sanitization, then truncate to 120 bytes like yt-dlp's .120B
     local sanitized
-    sanitized=$(printf '%s' "$raw_title" | perl -CSD -pe 's/\s+$//; s/\s+/_/g; s/[,!，！]+//g; s/[|｜]+//g; s/[;]+//g; s/[?]+//g; s/[.]+//g; s/[#]+//g; s/[<>]+//g; s/[:]+//g; s/["]+//g; s|[/]+||g; s/[\\]+//g; s/[*]+//g; s/[\x00-\x1F]+//g; s/[\x{3001}-\x{303F}\x{FF01}-\x{FF60}\x{FFE0}-\x{FFEE}]+//g' | head -c 120)
+    sanitized=$(sanitize_title "$raw_title")
 
     local file_name="${sanitized}_${quality_label}_${TIMESTAMP}${out_ext}"
 
@@ -819,5 +823,7 @@ main() {
     process_download_result "$PLATFORM" "$DOWNLOAD_EXIT_CODE"
 }
 
-# Run main function with all arguments
-main "$@"
+# Run main only when the script is executed directly, so tests can source it to reach the helper functions.
+if [ "${BASH_SOURCE[0]}" = "$0" ]; then
+    main "$@"
+fi
