@@ -42,7 +42,7 @@ aws lightsail get-instance --instance-name Ubuntu-1 --profile lightsail-tmp --re
   --query "instance.state.name" --output text
 ```
 
-> ✅ **Access Key 状态**：2026-08-02 已创建长期 key（AKIA36AZBDWPO5HFA355）并验证可用。
+> ✅ **Access Key 状态**：已创建长期 key 并验证可用（Key ID 见本地 `~/.aws/credentials`，不提交到 git）。
 > - 如果报 `UnrecognizedClientException` → key 可能被删除/轮换，需重新创建（见下方"配置说明"）
 
 ### 方案 2：浏览器控制台（备选，需要账号密码）
