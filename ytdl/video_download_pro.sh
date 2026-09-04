@@ -591,7 +591,7 @@ process_download_result() {
                 log "No separate subtitle files found (may be embedded)"
             fi
             
-            DOWNLOAD_HTTP_URL="https://files.jackangellucaslabs.top/$(url_encode "$FILE_NAME")"
+            DOWNLOAD_HTTP_URL="https://files.jackspark.top/$(url_encode "$FILE_NAME")"
             
             # Return file information
             log "SUCCESS: Download completed"
@@ -634,7 +634,7 @@ process_download_result() {
                 log "Video size: $FILE_SIZE"
                 log "Video path: $FILE_PATH"
                 
-                DOWNLOAD_HTTP_URL="https://files.jackangellucaslabs.top/$(url_encode "$FILE_NAME")"
+                DOWNLOAD_HTTP_URL="https://files.jackspark.top/$(url_encode "$FILE_NAME")"
 
                 # Upload to iCloud Drive
                 upload_to_icloud "$DOWNLOADED_VIDEO"
@@ -730,7 +730,7 @@ async_download_and_exit() {
     local file_name="${sanitized}_${quality_label}_${TIMESTAMP}${out_ext}"
 
     local download_http_url
-    download_http_url="https://files.jackangellucaslabs.top/$(url_encode "$file_name")"
+    download_http_url="https://files.jackspark.top/$(url_encode "$file_name")"
 
     echo "{"
     echo "  \"video_source_url\": $(json_escape "$URL"),"

@@ -9,3 +9,13 @@ chat-artifacts
 deploy-react-to-lightsail.skill
 ytdl/workdir/youtube_download.log
 ytdl/workdir/
+
+# ytdl backups
+ytdl/*.bak-*
+ytdl/*.backup-*
+ytdl/*.bak
+ytdl/cookies-youtube.txt.bak
+ytdl/__pycache__/
+# notes local index (private note content - never commit)
+notes/index.db
+ytdl/*.bak*

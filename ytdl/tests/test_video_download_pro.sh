@@ -20,7 +20,7 @@ COOKIES_FILE="$SCRIPT_DIR/../cookies-youtube.txt"
 MTLS_DIR="/home/ubuntu/mtls-cert"
 DOWNLOAD_DIR="/tmp/video_download/congliulyc@gmail.com"
 TEST_URL="https://www.youtube.com/watch?v=jNQXAC9IVRw"
-TEST_URL_BASE="https://files.jackangellucaslabs.top"
+TEST_URL_BASE="https://files.jackspark.top"
 
 PASS=0
 FAIL=0
@@ -103,7 +103,7 @@ if not d["video_source_url"].startswith("http"):
 if not d["title"]:
     print("title empty")
     sys.exit(1)
-if not d["download_link"].startswith("https://files.jackangellucaslabs.top/"):
+if not d["download_link"].startswith("https://files.jackspark.top/"):
     print("download_link wrong base")
     sys.exit(1)
 sys.exit(0)
@@ -153,10 +153,10 @@ print(urllib.parse.unquote(json.load(sys.stdin)['download_link'].rsplit('/',1)[-
         if [ "$LINK_CODE" = "200" ]; then pass "download link serves 200 with client cert"; else fail "download link -> $LINK_CODE (expected 200)"; fi
     fi
 
-    # 11. Old /files/ URL redirects to files.jackangellucaslabs.top
-    REDIR=$(curl -sI --max-time 20 "https://jackangellucaslabs.top/files/test.txt" | awk 'tolower($1)=="location:"{print $2}' | tr -d '\r')
-    if printf '%s' "$REDIR" | grep -q "^https://files.jackangellucaslabs.top/"; then
-        pass "old /files/ link redirects to files.jackangellucaslabs.top"
+    # 11. Old /files/ URL redirects to files.jackspark.top (served by the new zone)
+    REDIR=$(curl -sI --max-time 20 "https://jackspark.top/files/test.txt" | awk 'tolower($1)=="location:"{print $2}' | tr -d '\r')
+    if printf '%s' "$REDIR" | grep -q "^https://files.jackspark.top/"; then
+        pass "old /files/ link redirects to files.jackspark.top"
     else
         fail "old /files/ link redirect -> [$REDIR]"
     fi
