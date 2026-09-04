@@ -76,7 +76,9 @@ json_escape() {
 
 # 对文件名做 URL 百分号编码，保证下载链接在浏览器/curl 中都可用（B4）
 url_encode() {
-    "$PYTHON_CMD" -c 'import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1]))' "$1" 2>/dev/null
+    # surrogateescape keeps invalid UTF-8 bytes (e.g. a 120-byte title truncation
+    # cutting mid-CJK-character) encodeable, so the link never comes back empty.
+    "$PYTHON_CMD" -c 'import urllib.parse, sys; print(urllib.parse.quote(sys.argv[1].encode("utf-8", "surrogateescape")))' "$1" 2>/dev/null
 }
 
 # Function to upload a downloaded file to iCloud Drive via the companion script
@@ -670,10 +672,19 @@ process_download_result() {
 }
 
 # Main function
-# Reproduce yt-dlp's --replace-in-metadata title sanitization, then truncate to 120 bytes (like .120B).
-# Must stay in sync with the --replace-in-metadata list used by download_youtube.
+# Reproduce yt-dlp's --replace-in-metadata title sanitization, then truncate to 120 bytes
+# at a character boundary (yt-dlp's .120B rounds down, never leaves a partial char).
 sanitize_title() {
-    printf '%s' "$1" | perl -CSD -pe 's/\s+$//; s/\s+/_/g; s/[,!，！]+//g; s/[|｜]+//g; s/[;]+//g; s/[?]+//g; s/[.]+//g; s/[#]+//g; s/[<>]+//g; s/[:]+//g; s/["]+//g; s|[/]+||g; s/[\\]+//g; s/[*]+//g; s/[\x00-\x1F]+//g; s/[\x{3001}-\x{303F}\x{FF01}-\x{FF60}\x{FFE0}-\x{FFEE}]+//g' | head -c 120
+    printf '%s' "$1" | perl -CSD -pe 's/\s+$//; s/\s+/_/g; s/[,!，！]+//g; s/[|｜]+//g; s/[;]+//g; s/[?]+//g; s/[.]+//g; s/[#]+//g; s/[<>]+//g; s/[:]+//g; s/["]+//g; s|[/]+||g; s/[\\]+//g; s/[*]+//g; s/[\x00-\x1F]+//g; s/[\x{3001}-\x{303F}\x{FF01}-\x{FF60}\x{FFE0}-\x{FFEE}]+//g' | "$PYTHON_CMD" -c '
+import sys
+b = sys.stdin.buffer.read().decode("utf-8").encode("utf-8")[:120]
+while True:
+    try:
+        sys.stdout.buffer.write(b.decode("utf-8").encode("utf-8"))
+        break
+    except UnicodeDecodeError:
+        b = b[:-1]
+'
 }
 
 # Async flow: resolve metadata, emit the 3-field JSON immediately, then run the real download in the background with the same timestamp.
