@@ -5,7 +5,8 @@
 #   git config core.hooksPath .githooks
 # (hooksPath is what makes this file take effect; hooks are not cloned.)
 #
-# A finding aborts the commit. Full tests run in GitHub Actions.
+# A finding aborts the commit. The certificate-dependent download checks also
+# run locally; the full test suite runs in GitHub Actions.
 
 set -u
 
@@ -31,3 +32,11 @@ if git diff --cached --name-only --diff-filter=ACMR | grep -Eiq \
 fi
 
 printf '%s\n' '==> [pre-commit] secret scan passed'
+
+printf '%s\n' '==> [pre-commit] running download certificate tests (cases 9 and 10)'
+PRE_COMMIT_CERT_TESTS=1 bash "$(git rev-parse --show-toplevel)/ytdl/tests/test_video_download_pro.sh" || {
+	printf '%s\n' '✗ download certificate tests failed'
+	exit 1
+}
+
+printf '%s\n' '==> [pre-commit] checks passed'
