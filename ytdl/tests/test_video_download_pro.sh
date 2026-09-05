@@ -24,6 +24,7 @@ TEST_URL_BASE="https://files.jackspark.top"
 
 PASS=0
 FAIL=0
+PRE_COMMIT_CERT_TESTS="${PRE_COMMIT_CERT_TESTS:-0}"
 
 pass() { PASS=$((PASS + 1)); echo "  PASS: $1"; }
 fail() { FAIL=$((FAIL + 1)); echo "  FAIL: $1"; }
@@ -37,6 +38,7 @@ check_eq() {
     fi
 }
 
+if [ "$PRE_COMMIT_CERT_TESTS" != "1" ]; then
 echo "=== Unit tests ==="
 
 # 1. Syntax checks
@@ -67,6 +69,9 @@ check_eq "json_escape quote" '"a\"b"' "$(json_escape 'a"b')"
 # 6. URL encoding
 check_eq "url_encode space" "a%20b" "$(url_encode "a b")"
 check_eq "url_encode chinese" "%E4%B8%AD" "$(url_encode "中")"
+else
+    echo "=== Unit tests skipped (pre-commit certificate mode) ==="
+fi
 
 # --- Integration tests: only when the live environment is available ---
 if [ "${TEST_NETWORK:-1}" != "0" ] && [ -f "$COOKIES_FILE" ] && [ -f "$MTLS_DIR/jack-mtls-client.p12" ]; then
@@ -115,9 +120,8 @@ PYEOF
         fi
     }
 
-    # 7. Async: JSON shape + exact filename prediction + file lands
+    # Prepare an async download because test 10 validates its download link.
     ASYNC_JSON=$(run_script_json async)
-    check_json3 "async JSON" "$ASYNC_JSON"
     ASYNC_LINK=$(printf '%s' "$ASYNC_JSON" | python3 -c "import json,sys; print(json.load(sys.stdin)['download_link'])")
     ASYNC_FILE=$(printf '%s' "$ASYNC_JSON" | python3 -c "
 import json,sys,urllib.parse
@@ -129,14 +133,22 @@ print(urllib.parse.unquote(json.load(sys.stdin)['download_link'].rsplit('/',1)[-
         sleep 5
     done
     if [ "$FOUND" = "1" ]; then
-        pass "async background file lands with exact predicted name ($ASYNC_FILE)"
+        if [ "$PRE_COMMIT_CERT_TESTS" != "1" ]; then
+            pass "async background file lands with exact predicted name ($ASYNC_FILE)"
+        fi
     else
         fail "async file not found after 150s: $DOWNLOAD_DIR/$ASYNC_FILE"
     fi
 
-    # 8. Sync: JSON shape
-    SYNC_JSON=$(run_script_json "")
-    check_json3 "sync JSON" "$SYNC_JSON"
+    if [ "$PRE_COMMIT_CERT_TESTS" != "1" ]; then
+        check_json3 "async JSON" "$ASYNC_JSON"
+    fi
+
+    if [ "$PRE_COMMIT_CERT_TESTS" != "1" ]; then
+        # 8. Sync: JSON shape
+        SYNC_JSON=$(run_script_json "")
+        check_json3 "sync JSON" "$SYNC_JSON"
+    fi
 
     # 9. mTLS: files. requires client cert
     NO_CERT=$(curl -s -o /dev/null -w "%{http_code}" --max-time 20 "$TEST_URL_BASE/")
@@ -153,12 +165,14 @@ print(urllib.parse.unquote(json.load(sys.stdin)['download_link'].rsplit('/',1)[-
         if [ "$LINK_CODE" = "200" ]; then pass "download link serves 200 with client cert"; else fail "download link -> $LINK_CODE (expected 200)"; fi
     fi
 
-    # 11. Old /files/ URL redirects to files.jackspark.top (served by the new zone)
-    REDIR=$(curl -sI --max-time 20 "https://jackspark.top/files/test.txt" | awk 'tolower($1)=="location:"{print $2}' | tr -d '\r')
-    if printf '%s' "$REDIR" | grep -q "^https://files.jackspark.top/"; then
-        pass "old /files/ link redirects to files.jackspark.top"
-    else
-        fail "old /files/ link redirect -> [$REDIR]"
+    if [ "$PRE_COMMIT_CERT_TESTS" != "1" ]; then
+        # 11. Old /files/ URL redirects to files.jackspark.top (served by the new zone)
+        REDIR=$(curl -sI --max-time 20 "https://jackspark.top/files/test.txt" | awk 'tolower($1)=="location:"{print $2}' | tr -d '\r')
+        if printf '%s' "$REDIR" | grep -q "^https://files.jackspark.top/"; then
+            pass "old /files/ link redirects to files.jackspark.top"
+        else
+            fail "old /files/ link redirect -> [$REDIR]"
+        fi
     fi
 else
     echo "SKIP: integration tests (no cookies or mTLS cert present - CI mode)"

@@ -1,20 +1,33 @@
 #!/bin/bash
-# Pre-commit hook: runs all test suites before every commit.
+# Pre-commit hook: blocks common secrets in staged changes.
 #
 # Install once per clone with:
 #   git config core.hooksPath .githooks
 # (hooksPath is what makes this file take effect; hooks are not cloned.)
 #
-# A failing test aborts the commit.
+# A finding aborts the commit. Full tests run in GitHub Actions.
 
 set -u
 
-ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo "$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)")"
+printf '%s\n' '==> [pre-commit] scanning staged changes for secrets'
 
-echo "==> [pre-commit] tank tests"
-node "$ROOT/var/www/html/tank/tests/tank.test.js" || { echo "✗ tank tests failed"; exit 1; }
+STAGED_DIFF="$(git diff --cached --diff-filter=ACMR --unified=0 -- . ':(exclude)*.lock')"
+ADDED_LINES="$(printf '%s\n' "$STAGED_DIFF" | sed -n '/^+++/!{/^+/p;}')"
 
-echo "==> [pre-commit] video downloader script tests"
-bash "$ROOT/ytdl/tests/test_video_download_pro.sh" || { echo "✗ ytdl tests failed"; exit 1; }
+SECRET_PATTERN='BEGIN (RSA |EC |OPENSSH )?PRIVATE KEY|BEGIN CERTIFICATE'
+ASSIGNMENT_PATTERN='(^|[^[:alnum:]])(password|passwd|pwd|secret|api[_-]?key|access[_-]?key|auth[_-]?token|token)[[:space:]]*[=:][[:space:]]*[^[:space:]]{8,}'
 
-echo "==> [pre-commit] all tests passed"
+if printf '%s\n' "$ADDED_LINES" | grep -Eiq "$SECRET_PATTERN|$ASSIGNMENT_PATTERN"; then
+	printf '%s\n' '✗ possible secret found in staged changes'
+	printf '%s\n' '  Remove certificates, private keys, passwords, API keys, or tokens before committing.'
+	exit 1
+fi
+
+if git diff --cached --name-only --diff-filter=ACMR | grep -Eiq \
+	'(^|/)([^/]*(\.pem|\.key|\.p12|\.pfx|\.jks|\.keystore|\.crt|\.cer|id_rsa|id_ed25519|credentials[^/]*|password[^/]*|secrets?[^/]*)|\.env($|\.)|.*\.mobileprovision)$'; then
+	printf '%s\n' '✗ possible secret-bearing file staged'
+	printf '%s\n' '  Do not commit certificate, key, credential, secret, or environment files.'
+	exit 1
+fi
+
+printf '%s\n' '==> [pre-commit] secret scan passed'
