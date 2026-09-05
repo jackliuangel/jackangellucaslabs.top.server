@@ -19,3 +19,6 @@ ytdl/__pycache__/
 # notes local index (private note content - never commit)
 notes/index.db
 ytdl/*.bak*
+
+/tests/reports/
+
